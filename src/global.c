@@ -1,5 +1,12 @@
 #include <pebble.h>
 #include "global.h"
+  
+Window *main_window;
+Layer *root_layer;
+
+uint8_t brickpattern[] = { 21, 10, 68, 160, 81,162, 69,138, 0b11110000, 0b11000000};  //8 bytes, white, black
+
+  
 /*
 Definitions:
 

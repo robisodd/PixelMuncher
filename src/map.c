@@ -4,6 +4,11 @@
 // =========================================================================================================== //
 //  Map and Level Variables
 // ======================= //
+//TODO:
+// Init Map and Init Dots
+// initial_dots will be just 36(?) 32bit ints, each bit will be 1 or 0 and the two 2s (superdots) will be done in function
+// initial_map will also be just 1bit, converted to -1 or 0 in MAP[]
+// player[].dots[] will be like initial_dots and use same function to copy to MAP[]
 static int8_t boardlayout[MAP_W * MAP_H / 2] =
 {-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,
  -1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,-1,

@@ -1,4 +1,102 @@
 /*
+
+Begin:
+
+  BeginIntroScene(){
+    Point root layer drawing to IntroDrawing()
+    Point buttons to IntroButtons()
+    IntroLoop()
+  }
+  IntroDrawing() {
+    DrawBlack()
+  }
+  IntroButtons() {
+    Back = Exit App
+    Up/Dn/Sl = Stop IntroLoop Timer;  BeginMainMenuScene(SkipMenuPopup)
+  }
+  IntroLoop() {
+    
+    BeginMainMenuScene(StartMenuPopup)
+    Set Timer to run IntroLoop()
+  }
+
+
+// at this point, the background is black
+  BeginMainMenuScene(BeginMenuMode) {
+    Point buttons to MainMenuButtons()
+    Point root layer drawing to MainMenuDrawing()
+    MainMenuLoop(MenuMode)
+  }
+  MainMenuButtons() {
+    Up, Sel, Down = 
+    If MenuMode = Establishing BG or PopIn, set MenuMode to InMenu
+    Back = ExitApp()
+  }
+  MainMenuLoop(*data) {
+  
+  }
+  MainMenuDrawing() {
+    If MenuMode = Establishing
+      Draw background however
+      If background is done Set MenuMode to PopIn
+    if PopIn
+    
+  }
+Pop-In Menu()
+
+Pop-Out Menu()
+
+Start by pointing window draw routine to Intro
+
+GameMode:
+  0 BGpattern
+  1 pop in menu
+  2 menu up
+  3 pop out menu
+  4 
+
+draw order:
+bg pattern
+then board
+then closing pattern
+then popup menu
+
+Start muncher moving left
+DRAWBOARD
+switch(boardmode)
+ ingame or normal
+   draw board (normal)
+   draw dots (flash dots)
+   draw spectres
+   draw
+ playerstart(currentplayer)
+   draw board
+  playerready:
+  
+  won:
+    draw board (flash color)
+  dying:
+    draw board
+    draw dots (flashing)
+    draw muncher (dying frame)
+  gameover:
+    draw board
+    draw dots
+    draw 
+ 
+
+for spectre=0 to 3
+If spectre state=normal
+  Draw spectre as 1bit with ghostcolor
+  DrawEyes(spectre.face)
+else if spectre.state = dead
+  DrawEyes(spectre.face)
+else if spectre.state = Scare
+  Draw blue spectre
+end if
+
+*/
+/*
 LCD LCDs:
  1  168  144
  2   84   72
@@ -62,9 +160,10 @@ LCD LCDs:
     Floating Window Menu:
     Title: "Pixel Muncher [Picture?]"
     Main Menu:
-      Options
-      > Begin
-      Players: 1
+      Options (SL Flips to Options Menu)
+      > Start / Continue (Depending on Persistant Storage)
+      Players: 1/2/3/4 (SL to change)
+      High Scores (SL Flips to HS Menu)
       
     While Playing:
     Accelerometer to control joystick
@@ -151,3 +250,29 @@ Version 2: (Level Editor)
 //  -1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,-1,
 //  -1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1
 // };
+
+
+
+
+// ------------------------------------------------------------------------ //
+//  Notes
+// ------------------------------------------------------------------------ //
+/*
+#define FONT_KEY_FONT_FALLBACK "RESOURCE_ID_FONT_FALLBACK"
+#define FONT_KEY_GOTHIC_18 "RESOURCE_ID_GOTHIC_18"
+#define FONT_KEY_GOTHIC_18_BOLD "RESOURCE_ID_GOTHIC_18_BOLD"
+#define FONT_KEY_GOTHIC_24 "RESOURCE_ID_GOTHIC_24"
+#define FONT_KEY_GOTHIC_24_BOLD "RESOURCE_ID_GOTHIC_24_BOLD"
+#define FONT_KEY_GOTHIC_28 "RESOURCE_ID_GOTHIC_28"
+#define FONT_KEY_GOTHIC_28_BOLD "RESOURCE_ID_GOTHIC_28_BOLD"
+#define FONT_KEY_BITHAM_30_BLACK "RESOURCE_ID_BITHAM_30_BLACK"
+#define FONT_KEY_BITHAM_42_BOLD "RESOURCE_ID_BITHAM_42_BOLD"
+#define FONT_KEY_BITHAM_42_LIGHT "RESOURCE_ID_BITHAM_42_LIGHT"
+#define FONT_KEY_BITHAM_42_MEDIUM_NUMBERS "RESOURCE_ID_BITHAM_42_MEDIUM_NUMBERS"
+#define FONT_KEY_BITHAM_34_MEDIUM_NUMBERS "RESOURCE_ID_BITHAM_34_MEDIUM_NUMBERS"
+#define FONT_KEY_BITHAM_34_LIGHT_SUBSET "RESOURCE_ID_BITHAM_34_LIGHT_SUBSET"
+#define FONT_KEY_BITHAM_18_LIGHT_SUBSET "RESOURCE_ID_BITHAM_18_LIGHT_SUBSET"
+#define FONT_KEY_ROBOTO_CONDENSED_21 "RESOURCE_ID_ROBOTO_CONDENSED_21"
+#define FONT_KEY_ROBOTO_BOLD_SUBSET_49 "RESOURCE_ID_ROBOTO_BOLD_SUBSET_49"
+#define FONT_KEY_DROID_SERIF_28_BOLD "RESOURCE_ID_DROID_SERIF_28_BOLD"
+*/

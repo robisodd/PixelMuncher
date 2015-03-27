@@ -9,12 +9,19 @@
   // muncher properties reset between each player and/or single player death
   //   including: x,y pos, speed, mouth frame
   
+typedef struct PlayerStruct {
+  uint32_t score;
+   uint8_t lives;
+   uint8_t level;
+  // dots[]
+  // name/initials?
+} PlayerStruct;
 
 void init_player(uint8_t ID);
 void create_players(uint8_t num_of_players);
-void add_points(uint32_t points);
+// void add_points(uint32_t points);
 
 //uint8_t get_current_player();
-uint8_t get_lives();
-uint32_t get_score();
-uint8_t get_level();
+// uint8_t get_lives();
+// uint32_t get_score();
+// uint8_t get_level();

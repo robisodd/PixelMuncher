@@ -2,7 +2,9 @@
 #include "muncher.h"
 #include "map.h"
 #include "player.h"
-  
+extern PlayerStruct player[5];
+extern uint8_t current_player;
+
 MuncherStruct muncher;
 
 void init_muncher() {
@@ -45,12 +47,14 @@ void muncher_eat_dots() {
   //====================================//
   if(getmap(muncher.pos.x, muncher.pos.y)==1) {  // if on a regular dot, eat dot
     muncher.speed -= 2;                                                   // slow down due to eating dot
-    add_points(10);//    player[currentplayer].score += 10;                                   // add 10 points to score
+//     add_points(10);
+    player[current_player].score += 10;                                   // add 10 points to score
     setmap(muncher.pos.x, muncher.pos.y, 0); // remove dot from board
   }
   if(getmap(muncher.pos.x, muncher.pos.y)==2) {  // if on a super dot, eat superdot
     muncher.speed -= 6;                                                   // slow down due to eating superdot
-    add_points(50); //player[currentplayer].score += 50;                                   // add 50 points to score
+//     add_points(50);
+    player[current_player].score += 50;                                   // add 50 points to score
     setmap(muncher.pos.x, muncher.pos.y, 0); // remove superdot from board
     // [TODO] start CHASE mode
   }

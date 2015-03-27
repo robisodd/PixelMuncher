@@ -2,8 +2,14 @@
 #include "pebble.h"
 #define UPDATE_MS 30 // Refresh rate in milliseconds (about 32fps)
 #define ZOOM 5       // Number of pixels per map square
+// Map SHOULD be:
+// Currently: 28w x 31h
+// Original:  28w x 36h
+// Should be: 32w x 36h
 #define MAP_W 28
 #define MAP_H 31
+  
+// Pixel Offset to display board on screen
 #define BOARD_X 2
 #define BOARD_Y 13
   

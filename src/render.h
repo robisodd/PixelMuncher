@@ -20,3 +20,5 @@ void draw_dots(GContext *ctx);
 void draw_muncher(GContext *ctx);
 void draw_top(GContext *ctx);
 
+void build_shadow_table();
+void fill_rect(uint8_t *screen, GRect rect, uint8_t color);

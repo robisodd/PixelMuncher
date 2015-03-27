@@ -11,8 +11,12 @@
   
 //uint16_t totalpellets;  // delete this, not needed anymore
   
-static Window *game_window;
-static Layer *game_layer;
+extern Window *game_window;
+extern Layer *root_layer;
+
+extern Window *main_window;
+extern Layer *root_layer;
+Layer *game_layer;
 
 PlayerStruct player[1];
 uint8_t currentplayer = 0;
@@ -65,48 +69,25 @@ static void game_layer_update(Layer *me, GContext *ctx) {
 // ------------------------------------------------------------------------ //
 //  Main Functions
 // ------------------------------------------------------------------------ //
-static void game_window_load(Window *window) {
-  game_layer = window_get_root_layer(window);
+
+void init_game() {
+    accel_data_service_subscribe(0, NULL);  // We will be using the accelerometer
+
+  game_layer = root_layer;// create a new layer here //window_get_root_layer(window);
+  
   layer_set_update_proc(game_layer, game_layer_update);
   load_graphics();
   init_board();
   init_muncher();
   create_players(0);
   currentplayer = 0;
+
+  window_set_click_config_provider(main_window, game_click_config_provider);
 }
 
-static void game_window_unload(Window *window) {
-//   for (uint16_t i=0; i<9; i++) gbitmap_destroy(playersprite[i]);
+void destroy_game() {
+  accel_data_service_unsubscribe();
+  //TODO: destroy game layer
   for (uint8_t i=0; i<4; i++) for (uint8_t j=0; j<4; j++) gbitmap_destroy(playersprite[i][j]);
   gbitmap_destroy(background);
-}
-
-static void game_window_appear(Window *window) {}
-static void game_window_disappear(Window *window) {}
-
-static void init(void) {
-  // Set up and push main window
-  game_window = window_create();
-  window_set_click_config_provider(game_window, game_click_config_provider);
-  window_set_window_handlers(game_window, (WindowHandlers) {
-    .load = game_window_load,
-    .unload = game_window_unload,
-    .appear = game_window_appear,
-    .disappear = game_window_disappear
-  });
-  window_set_fullscreen(game_window, true);
-
-  //Set up other stuff
-  srand(time(NULL));  // Seed randomizer
-  accel_data_service_subscribe(0, NULL);  // We will be using the accelerometer
-  //font = fonts_load_custom_font(resource_get_handle(RESOURCE_ID_PIXEL_8));
-  
-  //Begin
-  window_stack_push(game_window, true /* Animated */); // Display window (layer is now dirty).  Timer callback will be scheduled after dirty layer is written.
-}
-  
-static void deinit_game(void) {
-  //fonts_unload_custom_font(font);
-  accel_data_service_unsubscribe();
-  window_destroy(game_window);
 }

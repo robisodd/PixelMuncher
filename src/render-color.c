@@ -5,6 +5,9 @@
 #include "render.h"
 #include "player.h"
 #include "muncher.h"
+extern PlayerStruct player[5];
+extern uint8_t current_player;
+
 //#ifdef PBL_PLATFORM_BASALT
 //  s_fb_data = gbitmap_get_data(s_fb);
 //  s_fb_size = gbitmap_get_bounds(s_fb).size;
@@ -144,7 +147,7 @@ void draw_top(GContext *ctx) {
   
   static char text[40];  //Buffer to hold text
   graphics_context_set_text_color(ctx, GColorWhite);  // Text Color
-  snprintf(text, sizeof(text), "Score:%ld Lives:%ld", (long int)get_score(get_current_player()), (long int)get_lives(get_current_player()));  // What text to draw
+  snprintf(text, sizeof(text), "Score:%ld Lives:%ld", (long int)player[current_player].score, (long int)player[current_player].lives);  // What text to draw
 //   snprintf(text, sizeof(text), "%d %d %ld %ld", accel.x, accel.y, atan2_lookup(accel.z, accel.x), atan2_lookup(-1 * accel.y, accel.z));  // What text to draw
   
   //snprintf(text, sizeof(text), "(%ld, %ld) %d", player[currentplayer].pos.x, player[currentplayer].pos.y, getmap(player[currentplayer].pos.x, player[currentplayer].pos.y));  // What text to draw
@@ -153,5 +156,39 @@ void draw_top(GContext *ctx) {
   // draw score (6 digits max -- 7 digits technically possible on level 100)
 }
 // ------------------------------------------------------------------------------------------------------------------------------------------------ //
+uint8_t shadowtable[256];
+void build_shadow_table() {
+  uint8_t r, g, b;
+  for(uint8_t i=0; i<64; i++) {
+    shadowtable[0b11000000+i] = 0b11000000+i;     // 100% None Shade (Same Color)
+    r = i & 0b00110000;
+    g = i & 0b00001100;
+    b = i & 0b00000011;
+    if(r>0) r-=0b00010000;
+    if(g>0) g-=0b00000100;
+    if(b>0) b-=0b00000001;
+    shadowtable[0b10000000+i] = 0b11000000+r+g+b; //  66% Some Shade (Slightly Darker)
+    if(r>0) r-=0b00010000;
+    if(g>0) g-=0b00000100;
+    if(b>0) b-=0b00000001;
+    shadowtable[0b01000000+i] = 0b11000000+r+g+b; //  33% Much Shade (Really Dark)
+    shadowtable[0b00000000+i] = 0b11000000;       //   0% Full Shade (Completely Dark)
+  }
+}
+
+void fill_rect(uint8_t *screen, GRect rect, uint8_t color) {
+  uint8_t bg_opacity = (~color)&0b11000000;
+  rect.size.w  += rect.origin.x; rect.size.h  += rect.origin.y;                      // convert rect.size.w and rect.size.h to rect.x2 and rect.y2
+  rect.size.w   = rect.size.w   < 0 ? 0 : rect.size.w   > 144 ? 144 : rect.size.w;   // make sure rect.x2 is within screen bounds
+  rect.origin.x = rect.origin.x < 0 ? 0 : rect.origin.x > 144 ? 144 : rect.origin.x; // make sure rect.x1 is within screen bounds
+  rect.size.h   = rect.size.h   < 0 ? 0 : rect.size.h   > 168 ? 168 : rect.size.h;   // make sure rect.y2 is within screen bounds
+  rect.origin.y = rect.origin.y < 0 ? 0 : rect.origin.y > 168 ? 168 : rect.origin.y; // make sure rect.y1 is within screen bounds
+
+  rect.origin.y*=144; rect.size.h*=144;
+  for (uint16_t y_addr=rect.origin.y; y_addr<rect.size.h; y_addr+=144)
+    for(uint16_t x_addr=rect.origin.x; x_addr<rect.size.w; x_addr++)
+      screen[y_addr+x_addr] = shadowtable[bg_opacity + (screen[y_addr+x_addr]&63)] + color;
+}
+
 #endif
 // ------------------------------------------------------------------------------------------------------------------------------------------------ //

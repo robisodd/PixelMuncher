@@ -9,6 +9,12 @@
     "resources": {
         "media": [
             {
+                "file": "images/Icon-ScaredSpectre.png",
+                "menuIcon": true,
+                "name": "ICON_ScaredSpectre",
+                "type": "png"
+            },
+            {
                 "file": "images/background.png",
                 "name": "BACKGROUND",
                 "type": "png"

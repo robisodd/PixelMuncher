@@ -5,6 +5,9 @@
 #include "render.h"
 #include "player.h"
 #include "muncher.h"
+extern PlayerStruct player[5];
+extern uint8_t current_player;
+
 // ------------------------------------------------------------------------------------------------------------------------------------------------ //
 void load_graphics() {
   background = gbitmap_create_with_resource(RESOURCE_ID_BACKGROUND);
@@ -78,7 +81,8 @@ void draw_top(GContext *ctx) {
   
   static char text[40];  //Buffer to hold text
   graphics_context_set_text_color(ctx, GColorWhite);  // Text Color
-  snprintf(text, sizeof(text), "Score:%ld Lives:%ld", (long int)get_score(get_current_player()), (long int)get_lives(get_current_player()));  // What text to draw
+  //snprintf(text, sizeof(text), "Score:%ld Lives:%ld", (long int)get_score(get_current_player()), (long int)get_lives(get_current_player()));  // What text to draw
+  snprintf(text, sizeof(text), "Score:%ld Lives:%ld", (long int)player[current_player].score, (long int)player[current_player].lives);  // What text to draw
 //   snprintf(text, sizeof(text), "%d %d %ld %ld", accel.x, accel.y, atan2_lookup(accel.z, accel.x), atan2_lookup(-1 * accel.y, accel.z));  // What text to draw
   
   //snprintf(text, sizeof(text), "(%ld, %ld) %d", player[currentplayer].pos.x, player[currentplayer].pos.y, getmap(player[currentplayer].pos.x, player[currentplayer].pos.y));  // What text to draw
@@ -87,6 +91,35 @@ void draw_top(GContext *ctx) {
   // draw score (6 digits max -- 7 digits technically possible on level 100)
 }
 // ------------------------------------------------------------------------------------------------------------------------------------------------ //
+void build_shadow_table() {}  // N/A in B&W
+
+void fill_rect(uint8_t *screen, GRect rect, uint8_t color) {
+  uint8_t data[] = {170, 85};
+  if((color&192)!=0b00000000) {    // if not clear
+    if(color==0b11000000)      {data[0]=  0; data[1]=  0;} // opaque black
+    else if(color==0b11111111) {data[0]=255; data[1]=255;} // opaque white
+    else                       {data[0]=170; data[1]= 85;} // opaque grey
+
+    rect.size.w  += rect.origin.x; rect.size.h  += rect.origin.y;                      // convert rect.size.w and rect.size.h to rect.x2 and rect.y2
+    rect.size.w   = rect.size.w   < 0 ? 0 : rect.size.w   > 144 ? 144 : rect.size.w;   // make sure rect.x2 is within screen bounds
+    rect.origin.x = rect.origin.x < 0 ? 0 : rect.origin.x > 144 ? 144 : rect.origin.x; // make sure rect.x1 is within screen bounds
+    rect.size.h   = rect.size.h   < 0 ? 0 : rect.size.h   > 168 ? 168 : rect.size.h;   // make sure rect.y2 is within screen bounds
+    rect.origin.y = rect.origin.y < 0 ? 0 : rect.origin.y > 168 ? 168 : rect.origin.y; // make sure rect.y1 is within screen bounds
+
+    GPoint addr;
+    addr.y = rect.origin.y*20;
+    uint8_t l_mask = 255 << (rect.origin.x%8); // mask for the left side
+    uint8_t r_mask = 255 << (rect.size.w%8);   // mask for the right side
+
+    for(int16_t y=0; y<(rect.size.h-rect.origin.y); y++, addr.y+=20) {
+      addr.x = rect.origin.x>>3;       // init X memory address
+      if  (addr.x >= 0 && addr.x < 19) screen[addr.y + addr.x] = (data[y&1] & l_mask) + (screen[addr.y + addr.x] & ~l_mask); // fill left-side of row
+      for(addr.x++; addr.x<(rect.size.w>>3); addr.x++)
+        if(addr.x >= 0 && addr.x < 19) screen[addr.y + addr.x] = data[y&1]; // fill middle of row
+      if  (addr.x >= 0 && addr.x < 19) screen[addr.y + addr.x] = (screen[addr.y + addr.x] & r_mask) + (data[y&1] & ~r_mask); // fill right-side of row
+    }
+  }
+}
 
 
 #endif
