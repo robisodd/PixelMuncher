@@ -2,9 +2,7 @@
 //  Color Drawing Functions
 // ------------------------------------------------------------------------ //
 #ifdef PBL_COLOR
-#include "render.h"
-#include "player.h"
-#include "muncher.h"
+#include "global.h"
 extern PlayerStruct player[5];
 extern uint8_t current_player;
 

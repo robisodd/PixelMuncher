@@ -1,5 +1,6 @@
 #pragma once
 #include "pebble.h"
+
 #define UPDATE_MS 30 // Refresh rate in milliseconds (about 32fps)
 #define ZOOM 5       // Number of pixels per map square
 // Map SHOULD be:
@@ -57,3 +58,127 @@ typedef struct BonusStruct {
 
 // =========================================================================================================== //
 int32_t abs32(int32_t x);
+// =========================================================================================================== //
+typedef struct SpectreStruct {
+// 	uint16_t x, y; // in pixels, not tile -- center pixel
+  XYStruct pos;
+  XYStruct dir;   // direction of movement (always -1, 0 or 1)
+   uint8_t speed; // speed multlipier for direction of movement
+  //uint8_t face;  // 0=Left, 1=Up, 2=Right, 3=Down
+   int16_t facing;             // Eater Direction Facing (from 0 - TRIG_MAX_ANGLE)
+  uint32_t frame; // Animation frame. Mouth: 0=Closed, 1=Open, 2=Wide, 3=Open
+  
+} SpectreStruct;
+SpectreStruct spectre[4];
+// =========================================================================================================== //
+
+  //TODO:
+  //Change PlayerStruct to be about the player
+  //  which are the things that stay with "player 1" and "Player 2" etc
+  // including initials, current dots remaining, score, lives, current level
+  //
+  // muncher properties reset between each player and/or single player death
+  //   including: x,y pos, speed, mouth frame
+  
+typedef struct PlayerStruct {
+  uint32_t score;
+   uint8_t lives;
+   uint8_t level;
+  // dots[]
+  // name/initials?
+} PlayerStruct;
+
+void init_player(uint8_t ID);
+void create_players(uint8_t num_of_players);
+// void add_points(uint32_t points);
+
+//uint8_t get_current_player();
+// uint8_t get_lives();
+// uint32_t get_score();
+// uint8_t get_level();
+
+
+//TODO: replace below with: typedef struct {
+  
+typedef struct MuncherStruct {
+// 	uint16_t x, y; // in pixels, not tile -- center pixel
+  XYStruct pos;
+  XYStruct dir;    // direction of movement (always -1, 0 or 1)
+   uint8_t speed;  // speed multlipier for direction of movement
+  //uint8_t face;  // 0=Left, 1=Up, 2=Right, 3=Down
+   int16_t facing; // Eater Direction Facing (from 0 - TRIG_MAX_ANGLE)
+  uint32_t frame;  // Animation frame. Mouth: 0=Closed, 1=Open, 2=Wide, 3=Open
+} MuncherStruct;
+
+
+void init_muncher();
+void move_muncher();
+void muncher_eat_dots();
+
+typedef struct LevelStruct {
+  uint16_t bonus;    //
+  uint8_t eaterspeed;
+  uint8_t spectrespeed;
+  uint8_t bonussprite;
+  uint32_t bonuspoints;
+} LevelStruct;
+// NOTE: Probably should change LevelStruct to a function which figures the data instead of a lookup table
+
+void   init_board();
+int8_t getmap(int32_t x, int32_t y);
+void   setmap(int32_t x, int32_t y, int8_t data);
+uint8_t getlevelspeed();
+
+
+#define AccelerometerControl   0 // Accelerometer Movement (default)
+#define ULDRButtonControl      1 // Up/Down/Back/Select for Up/Down/Left/Right
+#define LRButtonControl        2 // Up/Down for CounterClockwise/Clockwise rotation, Select to reverse direction
+
+#define AccelerometerTolerance 10 // How far to tilt watch before it's recognized as joystick input
+  
+void update_movement_via_joystick();
+void game_click_config_provider(void *context);
+
+GBitmap *background;
+GBitmap *playerspritesheet,   *playersprite[4][4];
+GBitmap *specturespritesheet, *spectresprite[4][4];
+GBitmap *fruitspritesheet,    *bonussprite[1];
+
+
+extern AccelData accel;
+extern uint16_t totalpellets;
+extern uint8_t dotflashing;
+extern uint8_t speed;         // probably replace with level[currentlevel].playerspeed
+
+void load_graphics();
+void draw_background(GContext *ctx);
+void draw_dots(GContext *ctx);
+void draw_muncher(GContext *ctx);
+void draw_top(GContext *ctx);
+
+void build_shadow_table();
+void fill_rect(uint8_t *screen, GRect rect, uint8_t color);
+
+void set_pattern(uint8_t *data);
+void fill_framebuffer_with_pattern(uint8_t *screen, uint8_t *data);
+void modify_pattern(uint8_t *data, int8_t x_offset, int8_t y_offset, uint8_t invert);
+void create_pattern_layer();
+void destroy_pattern_layer();
+
+
+typedef struct Layer
+{
+  GRect bounds;
+  GRect frame;
+  bool clips : 1;
+  bool hidden : 1;
+  struct Layer *next_sibling;
+  struct Layer *parent;
+  struct Layer *first_child;
+  struct Window *window;
+  LayerUpdateProc update_proc;
+} Layer;
+
+void mainmenu();
+
+void intro();

@@ -2,9 +2,7 @@
 //  Black and White Drawing Functions
 // ------------------------------------------------------------------------ //
 #ifdef PBL_BW
-#include "render.h"
-#include "player.h"
-#include "muncher.h"
+#include "global.h"
 extern PlayerStruct player[5];
 extern uint8_t current_player;
 
@@ -114,8 +112,7 @@ void fill_rect(uint8_t *screen, GRect rect, uint8_t color) {
     for(int16_t y=0; y<(rect.size.h-rect.origin.y); y++, addr.y+=20) {
       addr.x = rect.origin.x>>3;       // init X memory address
       if  (addr.x >= 0 && addr.x < 19) screen[addr.y + addr.x] = (data[y&1] & l_mask) + (screen[addr.y + addr.x] & ~l_mask); // fill left-side of row
-      for(addr.x++; addr.x<(rect.size.w>>3); addr.x++)
-        if(addr.x >= 0 && addr.x < 19) screen[addr.y + addr.x] = data[y&1]; // fill middle of row
+      for(addr.x++; addr.x<(rect.size.w>>3); addr.x++)        if(addr.x >= 0 && addr.x < 19) screen[addr.y + addr.x] = data[y&1]; // fill middle of row
       if  (addr.x >= 0 && addr.x < 19) screen[addr.y + addr.x] = (screen[addr.y + addr.x] & r_mask) + (data[y&1] & ~r_mask); // fill right-side of row
     }
   }

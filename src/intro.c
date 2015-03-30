@@ -1,4 +1,4 @@
-#include "intro.h"
+#include "global.h"
   
 extern Window *main_window;
 extern Layer *root_layer;

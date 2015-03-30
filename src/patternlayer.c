@@ -1,12 +1,13 @@
 #include <pebble.h>
-#include "patternlayer.h"
+#include "global.h"
   
 extern Window *main_window;
 extern Layer *root_layer;
 Layer *pattern_layer;
 
+
 static uint8_t *pattern;
-extern uint8_t brickpattern[];
+uint8_t brickpattern[] = { 21, 10, 68, 160, 81,162, 69,138, 0b11110000, 0b11000000};  //8 bytes, white, black
 
 void set_pattern(uint8_t *data) {
   pattern = data;

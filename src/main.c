@@ -1,17 +1,9 @@
 //56b37c6f-792a-480f-b962-9a0db8c32aa4
 //b00bface-effd-480f-b962-c0ded4c0ffee
 #include "global.h"
-#include "player.h"
-#include "muncher.h"
-#include "spectre.h"
-#include "map.h"
-#include "input.h"
-#include "render.h"
-#include "game.h"
-#include "intro.h"
   
-extern Window *main_window;
-extern Layer *root_layer;
+Window *main_window;
+Layer *root_layer;
 
 // ------------------------------------------------------------------------ //
 //  Main Functions
