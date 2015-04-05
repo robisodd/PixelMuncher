@@ -115,7 +115,9 @@ static void title_layer_update(Layer *me, GContext *ctx) {
   graphics_context_set_text_color(ctx, GColorWhite);  // Text Color
   graphics_draw_text(ctx, text, fonts_get_system_font(FONT_KEY_GOTHIC_14), textframe, GTextOverflowModeWordWrap, GTextAlignmentCenter, NULL);  //Write Text
   
-
+/*
+// HEY DONT DELETE THIS YET
+// Figure out size bug (shrinking box makes it big oddly)
   GRect rect = GRect(5,5,4,100);
   GBitmap* framebuffer = graphics_capture_frame_buffer(ctx);
   if(framebuffer) {   // if successfully captured the framebuffer
@@ -123,7 +125,7 @@ static void title_layer_update(Layer *me, GContext *ctx) {
     fill_rect(screen, rect, 0b01000000);
     graphics_release_frame_buffer(ctx, framebuffer);
   }  // endif successfully captured framebuffer
-
+*/
 }
 
 

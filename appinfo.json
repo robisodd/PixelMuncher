@@ -9,6 +9,11 @@
     "resources": {
         "media": [
             {
+                "file": "images/Font8.png",
+                "name": "FONT8",
+                "type": "png"
+            },
+            {
                 "file": "images/Icon-ScaredSpectre.png",
                 "menuIcon": true,
                 "name": "ICON_ScaredSpectre",

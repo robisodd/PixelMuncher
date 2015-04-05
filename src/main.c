@@ -4,6 +4,7 @@
   
 Window *main_window;
 Layer *root_layer;
+GBitmap* font8;
 
 // ------------------------------------------------------------------------ //
 //  Main Functions
@@ -53,6 +54,8 @@ static void init(void) {
   srand(time(NULL));  // Seed randomizer
   accel_data_service_subscribe(0, NULL);  // We will be using the accelerometer
   //font = fonts_load_custom_font(resource_get_handle(RESOURCE_ID_PIXEL_8));
+  font8 = gbitmap_create_with_resource(RESOURCE_ID_FONT8);
+  
   build_shadow_table();
   
   //Begin
