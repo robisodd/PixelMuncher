@@ -1,3 +1,4 @@
+/*
 #include "global.h"
   
 extern Window *main_window;
@@ -82,3 +83,4 @@ void intro() {
   window_set_click_config_provider(main_window, intro_button_config);
   intro_timer = app_timer_register(UPDATE_MS, introloop, NULL);
 }
+*/

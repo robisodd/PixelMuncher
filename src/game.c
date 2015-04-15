@@ -1,12 +1,25 @@
 //56b37c6f-792a-480f-b962-9a0db8c32aa4
 //b00bface-effd-480f-b962-c0ded4c0ffee
 #include "global.h"
+// How to draw font
+//   GBitmap* framebuffer = graphics_capture_frame_buffer(ctx);
+//   if(framebuffer) {   // if successfully captured the framebuffer
+//     uint8_t* screen = gbitmap_get_data(framebuffer);
+//     draw_font8(screen, 5, 5, 1, 65);
+//     graphics_release_frame_buffer(ctx, framebuffer);
+//   }  // endif successfully captured framebuffer
   
 //uint16_t totalpellets;  // delete this, not needed anymore
+
+// ------------------------------------------------------------------------ //
+//  Helper Functions
+// ------------------------------------------------------------------------ //
+int32_t abs32(int32_t x) {return (x ^ (x >> 31)) - (x >> 31);}
 
 extern Window *main_window;
 extern Layer *root_layer;
 Layer *game_layer;
+AppTimer* looptimer;
 
 uint8_t dotflashing=0;
 
@@ -24,12 +37,12 @@ uint8_t get_next_player() {
 }
 
 void init_player(uint8_t ID) {
-  player[ID].score=0;
-  player[ID].level=1;
-  player[ID].lives=3;
-  //player dots on board
+  player[ID].score = 0;
+  player[ID].level = 1;
+  player[ID].lives = 3;
+  for(uint8_t i=0; i<31; i++)
+    player[ID].dots[i] = 0; // all dots = uneaten
   //name="Player " & Number
-  
 }
 
 void create_players(uint8_t num_of_players) {
@@ -136,7 +149,8 @@ void muncher_eat_dots() {
 // initial_dots will be just 36(?) 32bit ints, each bit will be 1 or 0 and the two 2s (superdots) will be done in function
 // initial_map will also be just 1bit, converted to -1 or 0 in MAP[]
 // player[].dots[] will be like initial_dots and use same function to copy to MAP[]
-static int8_t boardlayout[MAP_W * MAP_H / 2] =
+
+static int8_t boardlayout[] =
 {-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,
  -1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,-1,
  -1, 1,-1,-1,-1,-1, 1,-1,-1,-1,-1,-1, 1,-1,
@@ -173,6 +187,50 @@ static int8_t boardlayout[MAP_W * MAP_H / 2] =
 // 1 = Pellet
 // 2 = Power Pellet
 
+//00=impass 01=blank 10=dot 11=bigdot
+uint32_t BoardLayout[31] = {
+//00000000000000000000000000000000
+//00000000000000000000000000000000
+//00000000000000000000000000000000
+//00000000000000000000000000000000 <- top of board
+0b0000000000000000000000000000,
+0b0010101010101010101010101000,
+0b0010000000000010000000001000,
+0b0010000101010010000101001100,
+0b0010000000000010000000001000,
+0b1010101010101010101010101000,
+0b0000000010000010000000001000,
+0b0000000010000010000000001000,
+0b0010101010000010101010101000,
+0b0001000000000010000000000000,
+0b0001000000000010000101010101,
+0b0101010101000010000101010101,
+0b0000000001000010000101010101,
+0b0101010001000010000000000000,
+0b0101010001010110010101010101,
+0b0101010001000010000000000000,
+0b0000000001000010000101010101,
+0b0101010101000010000101010101,
+0b0000000001000010000101010101,
+0b0000000001000010000000000000,
+0b0010101010101010101010101000,
+0b0010000000000010000000001000,
+0b0010000000000010000000001000,
+0b0110101010101010000010101100,
+0b0000000010000010000010000000,
+0b0000000010000010000010000000,
+0b0010101010000010101010101000,
+0b0010000000000000000000001000,
+0b0010000000000000000000001000,
+0b1010101010101010101010101000,
+0b0000000000000000000000000000
+//00000000000000000000000000000000 <- bottom of board
+//00000000000000000000000000000000
+//00000000000000000000000000000000
+};
+
+
+
 /*  Updated Map Data:
 Map is now folded in half
 bit 76543210
@@ -194,18 +252,76 @@ bits 0-6: squaretype [0-127] (for 3D or 2D)
 */
 LevelStruct level[21];
 LevelStruct currentlevel;
+uint8_t levelplayerspeed;         // probably replace with level[min(player.level,21)].playerspeed
 
 int8_t map[MAP_W * MAP_H];  // int8 means cells can be from -127 to 128
-uint8_t levelplayerspeed;         // probably replace with level[player.level].playerspeed
+
+void save_dots(uint8_t *dots) {
+  uint8_t bit = 0; // because 8 bits, can't have more than 256 total dots
+
+  // convert -1,0,1,2 to 0,1,2,3
+  for(uint16_t i=0; i<MAP_H*MAP_W; i++)
+    map[i]++;
+
+  for(uint16_t y=0, row=0; y<MAP_H*MAP_W; y+=MAP_W, row++)
+    for(uint16_t x=0; x<(MAP_W/2); x++) {  // map_w has to <= 32, else bitshift below breaks
+      if(((BoardLayout[row] >> (x*2))&3) > 1) { // if dot is supposed to exist
+        if(map[y+x]>1) {
+          dots[(bit>>3)] &= 1(bit&7))&1
+        }
+        if(map[y + MAP_W - 1 - x]>1) {
+          
+        }
+      }
+      map[y+x]               = (BoardLayout[row] >> (x*2))&3;
+      map[y + MAP_W - 1 - x] = (BoardLayout[row] >> (x*2))&3; // right 16 tiles = left side horizontally flipped
+      if(map[y+x] > 1) {  // 2(0b10) = dot, 3(0b11) = bigdot
+        if((dots[(bit>>3)]>>(bit&7))&1) // 1 = eaten
+          map[y+x] = 1;                 // 1 = blank
+        bit++;
+        if((dots[(bit>>3)]>>(bit&7))&1) // 1 = eaten
+          map[y + MAP_W - 1 - x] = 1;   // 1 = blank
+        bit++;
+      }
+    }
+
+}
+
+void load_dots(uint8_t *dots) {
+// note: in dots[], each bit is 0 if dot still exists or 1 if already eaten
+// init player[].dots[] all to 0 to signify full board (0 = dot there in dots[])
+  uint8_t bit = 0; // because 8 bits, can't have more than 256 total dots
+  for(uint16_t y=0, row=0; y<MAP_H*MAP_W; y+=MAP_W, row++)
+    for(uint16_t x=0; x<(MAP_W/2); x++) {  // map_w has to <= 32, else bitshift below breaks
+      map[y+x]               = (BoardLayout[row] >> (x*2))&3;
+      map[y + MAP_W - 1 - x] = (BoardLayout[row] >> (x*2))&3; // right 16 tiles = left side horizontally flipped
+      if(map[y+x] > 1) {  // 2(0b10) = dot, 3(0b11) = bigdot
+        if((dots[(bit>>3)]>>(bit&7))&1) // 1 = eaten
+          map[y+x] = 1;                 // 1 = blank
+        bit++;
+        if((dots[(bit>>3)]>>(bit&7))&1) // 1 = eaten
+          map[y + MAP_W - 1 - x] = 1;   // 1 = blank
+        bit++;
+      }
+    }
+
+  // convert 0,1,2,3 to -1,0,1,2
+  for(uint16_t i=0; i<MAP_H*MAP_W; i++)
+    map[i]--;
+}
 
 void init_board() {
 //   for(uint16_t i=0; i<MAP_W*MAP_H; i++) map[i] = boardlayout[i];
 
- for(uint16_t y=0; y<MAP_H*MAP_W; y+=MAP_W)
-  for(uint16_t x=0; x<(MAP_W/2); x++) {
-    map[y+x] = boardlayout[(y/2)+x];
-    map[y + MAP_W - 1 - x] = boardlayout[(y/2)+x];
-  } 
+  load_dots((uint8_t*)&player[current_player].dots);
+  
+/*  
+  for(uint16_t y=0; y<MAP_H*MAP_W; y+=MAP_W)
+   for(uint16_t x=0; x<(MAP_W/2); x++) {
+     map[y+x] = boardlayout[(y/2)+x];
+     map[y + MAP_W - 1 - x] = boardlayout[(y/2)+x];
+   }
+*/
   levelplayerspeed=19;  // Default 100% speed -- level speed will replace this
 }
 uint8_t getlevelspeed() {
@@ -223,9 +339,9 @@ void setmap(int32_t x, int32_t y, int8_t data) {
     map[(y * MAP_W) + x]=data;
 }
 
-
+//TODO: does face_do_dir need to be 32bits?
 const int32_t face_to_dir[2][4] = {{1, 0, -1, 0},{0, -1, 0, 1}}; // X then Y
-  
+
 // =========================================================================================================== //
 //  Control Input Options
 // ======================= //
@@ -252,15 +368,12 @@ void dn_push_in_handler(ClickRecognizerRef recognizer, void *context) {dn_button
 void dn_release_handler(ClickRecognizerRef recognizer, void *context) {dn_button_depressed = false; }  //  DOWN  button was released
 void sl_push_in_handler(ClickRecognizerRef recognizer, void *context) {sl_button_depressed = true;  }  // SELECT button was pushed in
 void sl_release_handler(ClickRecognizerRef recognizer, void *context) {sl_button_depressed = false; }  // SELECT button was released
-void bk_click_handler  (ClickRecognizerRef recognizer, void *context) {bk_button_depressed = false; }  //  BACK  button was clicked (BACK doesn't support raw)
-// BACK  button was pushed in
-// seems BACK might do this
+void bk_click_handler  (ClickRecognizerRef recognizer, void *context) {bk_button_depressed = true;  }  //  BACK  button was clicked (BACK doesn't support raw)
 
 void game_click_config_provider(void *context) {
   window_raw_click_subscribe(BUTTON_ID_UP, up_push_in_handler, up_release_handler, context);
   window_raw_click_subscribe(BUTTON_ID_DOWN, dn_push_in_handler, dn_release_handler, context);
   window_raw_click_subscribe(BUTTON_ID_SELECT, sl_push_in_handler, sl_release_handler, context);
-  //window_raw_click_subscribe(BUTTON_ID_BACK, bk_push_in_handler, bk_release_handler, context);
   window_single_click_subscribe(BUTTON_ID_BACK, bk_click_handler);
 }
 
@@ -280,6 +393,7 @@ void update_movement_via_joystick() {
   testspeed.x = 0; testspeed.y = 0;  testfacing.x = 0;  testfacing.y = 0;
   switch(control_mode) {
     case AccelerometerControl:
+      if(bk_button_depressed) window_stack_pop_all(true); // back = quit (TODO: Menu)
       accel_service_peek(&accel); // Read accelerometer
       accel.x>>=3; accel.y>>=3;
            if(accel.x<-AccelerometerTolerance) {if(getmap(muncher.pos.x+(64*-1), muncher.pos.y+(64* 0))>=0) {testspeed.x =-1; testfacing.x = 2;}} // Left
@@ -297,8 +411,11 @@ void update_movement_via_joystick() {
         muncher.facing  = testfacing.y;
       }
       break;
+      
+
     
     //TODO: Unfinished ULDR - doesn't test if wall is there
+    //TODO: Hold Up and Down together for a few frames = menu
     case ULDRButtonControl:
       //if(bk_button_depressed && !sl_button_depressed) {if(getmap(muncher.pos.x+(64*-1), muncher.pos.y+(64* 0))>=0) {testspeed.x =-1; testfacing.x = 2;}} // Left
       //if(sl_button_depressed && !bk_button_depressed) {if(getmap(muncher.pos.x+(64* 1), muncher.pos.y+(64* 0))>=0) {testspeed.x = 1; testfacing.x = 0;}} // Right
@@ -323,7 +440,7 @@ void update_movement_via_joystick() {
       //    if can go cw(down) and pushing down
       //      go cw(down)
   
-    
+      if(bk_button_depressed) window_stack_pop_all(true); // back = quit (TODO: Menu)
       if(sl_button_depressed) {            // Reverse
          sl_button_depressed = false;       // Stop reversing
          muncher.facing = (muncher.facing+2)&3;
@@ -355,6 +472,7 @@ void update_movement_via_joystick() {
      }
     break;
   }
+  bk_button_depressed = false; // since it's click, not raw, resetting bk variable until next depression
 }
 //   testspeed.x = 0; testspeed.y = 0;
 //   if(joystickmode) {
@@ -400,6 +518,7 @@ static void gameloop(void *data) {
   dotflashing++;
   
   layer_mark_dirty(game_layer);  // Schedule redraw of screen
+  looptimer=NULL;
 }
 
 
@@ -409,27 +528,27 @@ static void gameloop(void *data) {
 static void game_layer_update(Layer *me, GContext *ctx) {
   GBitmap* framebuffer = graphics_capture_frame_buffer(ctx);
   if(framebuffer) {
-    //draw_background(framebuffer);
-    graphics_release_frame_buffer(ctx, framebuffer);
+//     draw_background(framebuffer);
+   graphics_release_frame_buffer(ctx, framebuffer);
   }
-  draw_background(ctx);
-  draw_dots(ctx);
-  draw_muncher(ctx);
-  draw_top(ctx);
+  
+  draw_background_ctx(ctx);
+  draw_dots_ctx(ctx);
+  draw_muncher_ctx(ctx);
+  draw_top_ctx(ctx);
 
-  app_timer_register(UPDATE_MS, gameloop, NULL); // Finished. Wait UPDATE_MS then loop
+//   app_timer_register(UPDATE_MS, gameloop, NULL); // Finished. Wait UPDATE_MS then loop
+  if(!looptimer) looptimer = app_timer_register(UPDATE_MS, gameloop, NULL); // Finished. Wait UPDATE_MS then loop
 }
   
 // ------------------------------------------------------------------------ //
 //  Main Functions
 // ------------------------------------------------------------------------ //
-
 void init_game() {
-    accel_data_service_subscribe(0, NULL);  // We will be using the accelerometer
-
   game_layer = root_layer;// create a new layer here //window_get_root_layer(window);
   
   layer_set_update_proc(game_layer, game_layer_update);
+  
   load_graphics();
   init_board();
   init_muncher();
@@ -439,9 +558,16 @@ void init_game() {
   window_set_click_config_provider(main_window, game_click_config_provider);
 }
 
+void start_game() {
+  looptimer = app_timer_register(UPDATE_MS, gameloop, NULL); // Finished. Wait UPDATE_MS then loop
+//   app_timer_register(UPDATE_MS, gameloop, NULL); // Finished. Wait UPDATE_MS then loop
+}
+
 void destroy_game() {
+  if(looptimer) app_timer_cancel(looptimer);
   accel_data_service_unsubscribe();
   //TODO: destroy game layer
-  for (uint8_t i=0; i<4; i++) for (uint8_t j=0; j<4; j++) gbitmap_destroy(playersprite[i][j]);
-  gbitmap_destroy(background);
+  //destroy_graphics();
+//  for (uint8_t i=0; i<4; i++) for (uint8_t j=0; j<4; j++) gbitmap_destroy(playersprite[i][j]);
+//  gbitmap_destroy(background);
 }

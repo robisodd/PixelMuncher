@@ -1,3 +1,4 @@
+/*
 #include <pebble.h>
 #include "global.h"
 Layer *title_layer;
@@ -104,7 +105,7 @@ static void options_menu_layer_update(Layer *me, GContext *ctx) {
 }
 
 static void title_layer_update(Layer *me, GContext *ctx) {
-  draw_frame(me, ctx);
+  //draw_frame(me, ctx);
   
   static char text[100];
   GRect textframe = me->bounds; //textframe = GRect(11, 10, 120, 144);  // Text Box Position and Size: x, y, w, h
@@ -113,19 +114,26 @@ static void title_layer_update(Layer *me, GContext *ctx) {
           main_menu_layer->frame.origin.x,  main_menu_layer->frame.origin.y,  main_menu_layer->frame.size.w,  main_menu_layer->frame.size.h
           );
   graphics_context_set_text_color(ctx, GColorWhite);  // Text Color
-  graphics_draw_text(ctx, text, fonts_get_system_font(FONT_KEY_GOTHIC_14), textframe, GTextOverflowModeWordWrap, GTextAlignmentCenter, NULL);  //Write Text
+  //graphics_draw_text(ctx, text, fonts_get_system_font(FONT_KEY_GOTHIC_14), textframe, GTextOverflowModeWordWrap, GTextAlignmentCenter, NULL);  //Write Text
   
-/*
-// HEY DONT DELETE THIS YET
-// Figure out size bug (shrinking box makes it big oddly)
-  GRect rect = GRect(5,5,4,100);
   GBitmap* framebuffer = graphics_capture_frame_buffer(ctx);
   if(framebuffer) {   // if successfully captured the framebuffer
     uint8_t* screen = gbitmap_get_data(framebuffer);
-    fill_rect(screen, rect, 0b01000000);
+    draw_font8(screen, 5, 5, 1, 65);
     graphics_release_frame_buffer(ctx, framebuffer);
   }  // endif successfully captured framebuffer
-*/
+
+
+// HEY DONT DELETE THIS YET
+// Figure out size bug (shrinking box makes it big oddly)
+///  GRect rect = GRect(5,5,4,100);
+///  GBitmap* framebuffer = graphics_capture_frame_buffer(ctx);
+///  if(framebuffer) {   // if successfully captured the framebuffer
+///    uint8_t* screen = gbitmap_get_data(framebuffer);
+///    fill_rect(screen, rect, 0b01000000);
+///    graphics_release_frame_buffer(ctx, framebuffer);
+///  }  // endif successfully captured framebuffer
+
 }
 
 
@@ -181,14 +189,14 @@ static void create_menu_layers() {
 }
 
 void mainmenu() {
-  layer_set_hidden(pattern_layer, true);
+  //layer_set_hidden(pattern_layer, true);
   create_menu_layers();
   window_set_click_config_provider(main_window, main_menu_button_config);
   menutimer = app_timer_register(UPDATE_MS2, menuloop, NULL);
 }
 
 
-/*
+/ *
 
     Main Menu:
     UP/DN = Cursor Change

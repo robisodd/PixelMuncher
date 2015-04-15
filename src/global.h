@@ -9,6 +9,7 @@
 // Should be: 32w x 36h
 #define MAP_W 28
 #define MAP_H 31
+//#define BOARD_H 29 // technically 31 with top/bottom border, but can leave those out
   
 // Pixel Offset to display board on screen
 #define BOARD_X 2
@@ -72,8 +73,7 @@ typedef struct SpectreStruct {
 SpectreStruct spectre[4];
 // =========================================================================================================== //
 
-  //TODO:
-  //Change PlayerStruct to be about the player
+  //PlayerStruct are things about the player
   //  which are the things that stay with "player 1" and "Player 2" etc
   // including initials, current dots remaining, score, lives, current level
   //
@@ -84,7 +84,7 @@ typedef struct PlayerStruct {
   uint32_t score;
    uint8_t lives;
    uint8_t level;
-  // dots[]
+   uint8_t dots[31];
   // name/initials?
 } PlayerStruct;
 
@@ -139,10 +139,6 @@ uint8_t getlevelspeed();
 void update_movement_via_joystick();
 void game_click_config_provider(void *context);
 
-GBitmap *background;
-GBitmap *playerspritesheet,   *playersprite[4][4];
-GBitmap *specturespritesheet, *spectresprite[4][4];
-GBitmap *fruitspritesheet,    *bonussprite[1];
 
 
 extern AccelData accel;
@@ -151,10 +147,10 @@ extern uint8_t dotflashing;
 extern uint8_t speed;         // probably replace with level[currentlevel].playerspeed
 
 void load_graphics();
-void draw_background(GContext *ctx);
-void draw_dots(GContext *ctx);
-void draw_muncher(GContext *ctx);
-void draw_top(GContext *ctx);
+void draw_background_ctx(GContext *ctx);
+void draw_dots_ctx(GContext *ctx);
+void draw_muncher_ctx(GContext *ctx);
+void draw_top_ctx(GContext *ctx);
 
 void build_shadow_table();
 void fill_rect(uint8_t *screen, GRect rect, uint8_t color);
@@ -182,3 +178,4 @@ typedef struct Layer
 void mainmenu();
 
 void intro();
+void draw_font8(uint8_t *screen, int16_t x, int16_t y, uint8_t color, uint8_t chr);
