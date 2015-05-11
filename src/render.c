@@ -186,14 +186,14 @@ void fill_rect(uint8_t *screen, GRect rect, uint8_t color) {
 // ------------------------------------------------------------------------------------------------------------------------------------------------ //
 void draw_muncher_ctx(GContext *ctx) {
   extern MuncherStruct muncher;
-  uint8_t *target;
+  ///uint8_t *target;
   int32_t x, y;  // player's center dot on the screen
   graphics_context_set_stroke_color(ctx, GColorYellow);
   x = ((muncher.pos.x >> 6) * 5) + (((muncher.pos.x & 63) * 5) / 64);
   y = ((muncher.pos.y >> 6) * 5) + (((muncher.pos.y & 63) * 5) / 64);
   //target=(uint32_t*)playerspritesheet->addr + (((player[currentplayer].frame>>0)&3)*8);
   //target = (uint8_t*)playerspritesheet+(32*0);// + (((muncher.frame>>0)&3)*8) + 5;
-target=(uint8_t*)gbitmap_get_data(playerspritesheet);
+
 /*
   graphics_context_set_fill_color(ctx, GColorBlack);
   graphics_fill_rect(ctx, GRect(0, 0, 144, 168), 0, GCornerNone);
@@ -203,27 +203,32 @@ target=(uint8_t*)gbitmap_get_data(playerspritesheet);
   graphics_draw_text(ctx, text, fonts_get_system_font("RESOURCE_ID_GOTHIC_14"), GRect(0, -4, 144, 172), GTextOverflowModeWordWrap, GTextAlignmentLeft, NULL);  //Write Text
 */
 
-  graphics_context_set_stroke_color(ctx, GColorYellow);
-  for(uint32_t i=0; i<7; i++) {
-    for(uint32_t j=0; j<7; j++) {
-      if(*(target + ((i+(muncher.frame*8))*32) + (muncher.facing*8) + j) == 255)
-        graphics_draw_pixel(ctx, GPoint(j+x+BOARD_X-3, i+y+BOARD_Y-3));
-    //if((((*(target+i)) >> ((muncher.facing * 8) + j)) & 1) == 1)      
-    }
-  }
+
   
-/*
+//target=(uint8_t*)gbitmap_get_data(playerspritesheet);  
+//   graphics_context_set_stroke_color(ctx, GColorYellow);
+//   for(uint32_t i=0; i<7; i++) {
+//     for(uint32_t j=0; j<7; j++) {
+// //       if(*(target + ((i+(muncher.frame*8))*32) + (muncher.facing*8) + j) == 0)
+//       if(*(target + (i*32) + j) == 0)
+//         graphics_draw_pixel(ctx, GPoint(j+x+BOARD_X-3, i+y+BOARD_Y-3));
+//     //if((((*(target+i)) >> ((muncher.facing * 8) + j)) & 1) == 1)      
+//     }
+//   }
+  
+  
+  // was the above one, now this
+  uint32_t* target=(uint32_t*)gbitmap_get_data(playerspritesheet);
+  target += (((muncher.frame>>0)&3)*8);
   for(uint32_t i=0; i<7; i++) {
     for(uint32_t j=0; j<7; j++) {
-        //if(*(target+(i*32)+j) != 192)
      graphics_context_set_stroke_color(ctx, GColorYellow);
-    if((((*(target+i)) >> ((muncher.facing * 8) + j)) & 1) == 1)      
+    if((((*(target+i)) >> (((muncher.facing * 8) + (7-j)))) & 1) == 1)      
       graphics_draw_pixel(ctx, GPoint(j+x+BOARD_X-3, i+y+BOARD_Y-3));
-      //else
     }
   }
 
-*/
+
   
   
   /*

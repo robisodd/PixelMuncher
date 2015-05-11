@@ -46,7 +46,9 @@ static void init(void) {
     .appear = main_window_appear,
     .disappear = main_window_disappear
   });
-  window_set_fullscreen(main_window, true);
+  #ifdef PBL_BW
+    window_set_fullscreen(main_window, true);
+  #endif
 
   //Set up other stuff
   srand(time(NULL));  // Seed randomizer

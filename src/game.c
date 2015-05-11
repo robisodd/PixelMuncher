@@ -267,7 +267,7 @@ void save_dots(uint8_t *dots) {
     for(uint16_t x=0; x<(MAP_W/2); x++) {  // map_w has to <= 32, else bitshift below breaks
       if(((BoardLayout[row] >> (x*2))&3) > 1) { // if dot is supposed to exist
         if(map[y+x]>1) {
-          dots[(bit>>3)] &= 1(bit&7))&1
+          //dots[(bit>>3)] &= 1(bit&7))&1
         }
         if(map[y + MAP_W - 1 - x]>1) {
           
@@ -526,17 +526,26 @@ static void gameloop(void *data) {
 
 //====================================//
 static void game_layer_update(Layer *me, GContext *ctx) {
-  GBitmap* framebuffer = graphics_capture_frame_buffer(ctx);
-  if(framebuffer) {
-//     draw_background(framebuffer);
-   graphics_release_frame_buffer(ctx, framebuffer);
-  }
+//   GBitmap* framebuffer = graphics_capture_frame_buffer(ctx);
+//   if(framebuffer) {
+// //     draw_background(framebuffer);
+//    graphics_release_frame_buffer(ctx, framebuffer);
+//   }
+  time_t sec1, sec2; uint16_t ms1, ms2, dt; // time snapshot variables, to calculate render time and FPS
+  time_ms(&sec1, &ms1);  //1st Time Snapshot
+
   
   draw_background_ctx(ctx);
   draw_dots_ctx(ctx);
   draw_muncher_ctx(ctx);
   draw_top_ctx(ctx);
 
+  time_ms(&sec2, &ms2);  //2nd Time Snapshot
+  dt = (uint16_t)(1000*(sec2 - sec1)) + (ms2 - ms1);  //dt=delta time: time between two time snapshots in milliseconds
+  player[current_player].score = dt;
+
+
+  
 //   app_timer_register(UPDATE_MS, gameloop, NULL); // Finished. Wait UPDATE_MS then loop
   if(!looptimer) looptimer = app_timer_register(UPDATE_MS, gameloop, NULL); // Finished. Wait UPDATE_MS then loop
 }
