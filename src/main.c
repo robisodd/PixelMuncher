@@ -1,7 +1,7 @@
 //56b37c6f-792a-480f-b962-9a0db8c32aa4
 //b00bface-effd-480f-b962-c0ded4c0ffee
-//#include "global.h"
-#include "pebble.h"
+#include "global.h"
+//#include "pebble.h"
 void start_game();
 void init_game();
 void destroy_game();
@@ -46,23 +46,19 @@ static void init(void) {
     .appear = main_window_appear,
     .disappear = main_window_disappear
   });
-  #ifdef PBL_BW
-    window_set_fullscreen(main_window, true);
-  #endif
+  IF_BW(window_set_fullscreen(main_window, true));
 
   //Set up other stuff
   srand(time(NULL));  // Seed randomizer
-  accel_data_service_subscribe(0, NULL);  // We will be using the accelerometer
-  //font = fonts_load_custom_font(resource_get_handle(RESOURCE_ID_PIXEL_8));
-  //build_shadow_table();
+  accel_data_service_subscribe(0, NULL);  // We may be using the accelerometer
+  build_shadow_table();
   
   //Begin
   window_stack_push(main_window, true); // Display window -- layer is now dirty.  Timer callback will be scheduled after dirty layer is written.  
 }
   
 static void deinit(void) {
-  //unload_graphics()
-  //fonts_unload_custom_font(font);
+  unload_graphics();
   accel_data_service_unsubscribe();
   window_destroy(main_window);
 }

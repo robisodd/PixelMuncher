@@ -1,16 +1,9 @@
 //56b37c6f-792a-480f-b962-9a0db8c32aa4
 //b00bface-effd-480f-b962-c0ded4c0ffee
 #include "global.h"
-// How to draw font
-//   GBitmap* framebuffer = graphics_capture_frame_buffer(ctx);
-//   if(framebuffer) {   // if successfully captured the framebuffer
-//     uint8_t* screen = gbitmap_get_data(framebuffer);
-//     draw_font8(screen, 5, 5, 1, 65);
-//     graphics_release_frame_buffer(ctx, framebuffer);
-//   }  // endif successfully captured framebuffer
-  
-//uint16_t totalpellets;  // delete this, not needed anymore
+uint16_t totalpellets;
 
+  
 // ------------------------------------------------------------------------ //
 //  Helper Functions
 // ------------------------------------------------------------------------ //
@@ -18,12 +11,26 @@ int32_t abs32(int32_t x) {return (x ^ (x >> 31)) - (x >> 31);}
 
 extern Window *main_window;
 extern Layer *root_layer;
+
 Layer *game_layer;
 AppTimer* looptimer;
-
-uint8_t dotflashing=0;
+uint8_t animate = 0;
+uint32_t hi_score = 0;
 
 PlayerStruct player[5];
+SpectreStruct spectre[4];
+MuncherStruct muncher;
+//LevelStruct level[21];
+LevelStruct currentlevel;
+uint8_t levelplayerspeed;         // probably replace with level[min(player.level,21)].playerspeed
+
+uint8_t map[MAP_W * MAP_H];  // int8 means cells can be from -127 to 128
+
+//TODO: does face_do_dir need to be 32bits?
+const int32_t face_to_dir[2][4] = {{1, 0, -1, 0},{0, -1, 0, 1}}; // X then Y
+
+uint32_t bonuspoints[8] = {100, 300, 500, 700, 1000, 2000, 3000, 5000};
+
 uint8_t currentplayer = 0;
 uint8_t current_player;
 uint8_t max_players;
@@ -60,45 +67,27 @@ void destroy_players() {
   //free malloc player[]
 }
 
-
-// void add_points(uint32_t points) {player[current_player].score+=points;}
-// uint32_t get_score() {return player[current_player].score;}
-//  uint8_t get_lives() {return player[current_player].lives;}
-//  uint8_t get_level() {return player[current_player].level;}
-//  uint8_t get_current_player() {return current_player;}
-//bool player_is_dead(
-//void set_current_player(uint8_t ID) {current_player = ID;}
-
-static void init_spectres() {
-  //Enemy Init:
-	//Start Positions
-	//Target Coordinates for every mode (attack, regroup, scare)
-
-  //Modes:
-  // Bunker
-  // Patrol
-  // Attack
-  // Crusie Elroy
-  // Scare (Blue)
-  // Dead/Eyes
-  
+void add_points(uint8_t points_to_add) {
+  player[current_player].score += points_to_add;
+  if(player[current_player].score > hi_score) {
+    //yay!
+  }
 }
-
-MuncherStruct muncher;
 
 void init_muncher() {
   muncher.pos.x   = (14<<6);    // start halfway between 13&14;
   muncher.pos.y   = (23<<6)+32; // start in middle of 23;
-  muncher.facing  = 1;          // Facing Up. if using angles, then TRIG_MAX_ANGLE/4, or 1<<13; (up so counterclockwise button goes left, clockwise goes right)
-  muncher.frame   = 0;          // Full Circle Sprite
-  muncher.dir.x = 0;
-  muncher.dir.y = 0;
+  muncher.facing  = 2;          // Facing Left. 
+                      // if using angles, then TRIG_MAX_ANGLE/4, or 1<<13; (up so counterclockwise button goes left, clockwise goes right)
+  muncher.frame   =  0;        // Full Circle Sprite
+  muncher.dir.x   = -1;        // moving left
+  muncher.dir.y   =  0;        // not moving vertically
 }
 
 void move_muncher() {
   //TODO: tend toward the middle based on speed
   if(muncher.dir.x != 0) {     // if moving horizontally
-    if(getmap(muncher.pos.x+(32*muncher.dir.x), muncher.pos.y)>=0) { // if not running into a wall  
+    if(getmap(muncher.pos.x+(32*muncher.dir.x), muncher.pos.y)<128) { // if not running into a wall  
       muncher.pos.x += (muncher.speed*muncher.dir.x);
       if(muncher.pos.x<-63)     muncher.pos.x += (32<<6);     // tunnel left wraparound
       if(muncher.pos.x>(32<<6)) muncher.pos.x -= (32<<6); // tunnel right wraparound
@@ -109,7 +98,7 @@ void move_muncher() {
       muncher.dir.x = 0;
     }
   } else if(muncher.dir.y !=0) {  // (not moving horizontally) if moving vertically
-    if(getmap(muncher.pos.x, muncher.pos.y+(32*muncher.dir.y))>=0) { // if not running into a wall  
+    if(getmap(muncher.pos.x, muncher.pos.y+(32*muncher.dir.y))<128) { // if not running into a wall  
       muncher.pos.y += (muncher.speed*muncher.dir.y);
       muncher.frame=(muncher.frame+1)&3;
       muncher.pos.x = ((muncher.pos.x>>6)<<6)+32; // tend toward tile center
@@ -124,22 +113,203 @@ void muncher_eat_dots() {
   //====================================//
   // Eat Dots, Update Score, Slow Speed
   //====================================//
-  if(getmap(muncher.pos.x, muncher.pos.y)==1) {  // if on a regular dot, eat dot
-    muncher.speed -= 2;                                                   // slow down due to eating dot
-//     add_points(10);
-    player[current_player].score += 10;                                   // add 10 points to score
-    setmap(muncher.pos.x, muncher.pos.y, 0); // remove dot from board
+  uint8_t tile = getmap(muncher.pos.x, muncher.pos.y);
+  if(tile&8) {                                     // if on a dot
+    if(tile&16) {                                    // if dot is a super dot
+      muncher.speed -= 6;                              // slow down due to eating superdot
+      //     add_points(50);
+      player[current_player].score += 50;              // add 50 points to score
+      player[current_player].totaldots--;
+      // [TODO] start CHASE mode
+    } else {                                         // else it's a regular dot
+      muncher.speed -= 2;                              // slow down due to eating dot
+      //     add_points(10);
+      player[current_player].score += 10;              // add 10 points to score
+    }
+    setmap(muncher.pos.x, muncher.pos.y, tile&(~24));// remove dot from board
+    player[current_player].totaldots--;
   }
-  if(getmap(muncher.pos.x, muncher.pos.y)==2) {  // if on a super dot, eat superdot
-    muncher.speed -= 6;                                                   // slow down due to eating superdot
-//     add_points(50);
-    player[current_player].score += 50;                                   // add 50 points to score
-    setmap(muncher.pos.x, muncher.pos.y, 0); // remove superdot from board
-    // [TODO] start CHASE mode
-  }
-
 }
 
+  
+
+void init_spectres() {
+  // facing and direction are different as eyes point to where it WILL go
+  for(uint8_t i=0; i<4; ++i) {
+    spectre[i].pos.x  = (14<<6);    // start halfway between 13&14;
+    spectre[i].pos.y  = (14<<6)+32; // start in middle of 14;
+    spectre[i].dir.x  = 0;
+    spectre[i].dir.y  = 0;
+    spectre[i].speed  = 1;
+    spectre[i].frame  = 0;          // Full Circle Sprite
+    spectre[i].mode   = ModeBunker;
+  }
+  
+  spectre[0].mode   = ModePatrol;
+  
+  spectre[0].pos.y  = (11<<6)+32; // start in middle of 11;
+  spectre[1].pos.x  = (12<<6);    // start halfway between 13&14;
+  spectre[3].pos.x  = (16<<6);    // start halfway between 13&14;
+
+  spectre[0].facing = 2;          // Facing Left
+  spectre[1].facing = 1;          // Facing Up
+  spectre[2].facing = 3;          // Facing Down
+  spectre[3].facing = 1;          // Facing Up
+  
+  spectre[0].dir.x  = -1; // left
+  spectre[1].dir.y  = -1; // Up
+  spectre[2].dir.y  =  1; // Down
+  spectre[3].dir.y  = -1; // Up
+  
+  spectre[0].color = 0b11110000;
+  spectre[1].color = 0b11001111;
+  spectre[2].color = 0b11110111;
+  spectre[3].color = 0b11111000;
+  
+  
+  //spectre[].targettile.x = 0;
+  spectre[0].targettile.x   = (23<<6);
+  spectre[0].targettile.y   = (1<<6);
+  spectre[1].targettile.x   = (23<<6);
+  spectre[1].targettile.y   = (1<<6);
+  spectre[2].targettile.x   = (23<<6);
+  spectre[2].targettile.y   = (1<<6);
+  spectre[3].targettile.x   = (23<<6);
+  spectre[3].targettile.y   = (1<<6);
+
+    
+  //Enemy Init:
+	//Start Positions
+	//Target Coordinates for every mode (attack, regroup, scare)
+
+  //Modes:
+  // Bunker
+  // Patrol
+  // Attack
+  // Cruise Elroy
+  // Scared (Blue)
+  // Dead/Eyes
+  
+}
+
+void move_spectres() {
+  for(uint8_t i=0; i<4; ++i) {
+    spectre[i].speed=15;
+    
+
+
+
+    
+    // check mode
+    // check dot count
+    // set speed accordingly for position
+    // set CRUISE accordingly
+
+    //check collision
+//0-31 = before, 32-63=after
+// if previous center dot was before center square and will be after
+// then check next whole square (after moving)
+
+    
+     //if ((spectre[i].pos.x>>5)&1)
+    if(spectre[i].mode==ModeBunker) {
+      if(getmap(spectre[i].pos.x+(64*spectre[i].dir.x), spectre[i].pos.y+(64*spectre[i].dir.y))<128) { // if not running into a wall  
+        spectre[i].pos.x += (spectre[i].speed*spectre[i].dir.x);
+        spectre[i].pos.y += (spectre[i].speed*spectre[i].dir.y);
+      } else { // will hit a wall
+          //spectre[i].pos.y -= ((spectre[i].dir.y*64*1)/5);
+          //spectre[i].pos.y -= (spectre[i].dir.y*32);
+          spectre[i].facing = (spectre[i].facing  + 2) & 3; // reverse face
+          spectre[i].dir.y *= -1;  // reverse direction
+          //spectre[i].dir.y = 0;
+        } 
+    } else {  
+      if(getmap(spectre[i].pos.x+(33*spectre[i].dir.x), spectre[i].pos.y+(33*spectre[i].dir.y))<128) { // if not running into a wall  
+        spectre[i].pos.x += (spectre[i].speed*spectre[i].dir.x);
+        spectre[i].pos.y += (spectre[i].speed*spectre[i].dir.y);
+        if(spectre[i].pos.x<-63)     spectre[i].pos.x += (32<<6); // tunnel left wraparound
+        if(spectre[i].pos.x>(32<<6)) spectre[i].pos.x -= (32<<6); // tunnel right wraparound
+        //spectre[i].frame=(spectre[i].frame+1)&3;
+        
+        if(spectre[i].mode != ModeBunker) {
+          if(spectre[i].dir.x == 0)    // (not moving horizontally) if moving vertically
+            spectre[i].pos.x = (spectre[i].pos.x&(~63))+32; // tend toward tile center
+          if(spectre[i].dir.y == 0)     // if moving horizontally
+            spectre[i].pos.y = (spectre[i].pos.y&(~63))+32; // tend toward tile center
+        }
+      } else { // will hit a wall
+//         if(spectre[i].mode==ModeBunker) {
+//           //spectre[i].pos.x -= (spectre[i].dir.x*32);
+//           //spectre[i].facing = (spectre[i].facing  + 2) & 3;
+//           //spectre[i].dir.x = 0;//*= -1;
+          
+//           //spectre[i].pos.y -= ((spectre[i].dir.y*64*1)/5);
+//           //spectre[i].pos.y -= (spectre[i].dir.y*32);
+//           spectre[i].facing = (spectre[i].facing  + 2) & 3; // reverse face
+//           spectre[i].dir.y *= -1;  // reverse direction
+//           //spectre[i].dir.y = 0;        
+//         }
+        if(spectre[i].mode==ModePatrol) {
+          spectre[i].facing = (spectre[i].facing + (rand()%3))&3;
+          spectre[i].dir.x = face_to_dir[0][spectre[i].facing];
+          spectre[i].dir.y = face_to_dir[1][spectre[i].facing];
+          //spectre[i].dir.x = 0;//*= -1;
+        }
+      }
+    }
+
+    
+//     if(spectre[i].dir.x != 0) {     // if moving horizontally
+//       if(getmap(spectre[i].pos.x+(33*spectre[i].dir.x), spectre[i].pos.y)>=0) { // if not running into a wall  
+//         spectre[i].pos.x += (spectre[i].speed*spectre[i].dir.x);
+//         if(spectre[i].pos.x<-63)     spectre[i].pos.x += (32<<6); // tunnel left wraparound
+//         if(spectre[i].pos.x>(32<<6)) spectre[i].pos.x -= (32<<6); // tunnel right wraparound
+//         //spectre[i].frame=(spectre[i].frame+1)&3;
+//         //spectre[i].pos.y = ((spectre[i].pos.y>>6)<<6)+32; // tend toward tile center
+//         spectre[i].pos.y = (spectre[i].pos.y&(~63))+32; // tend toward tile center
+//       } else { // will hit a wall
+//         spectre[i].pos.x = (spectre[i].pos.x&(~63))+32; // finish moving toward wall, stop at tile center
+//         if(spectre[i].mode==ModeBunker) {
+//           //spectre[i].pos.x -= (spectre[i].dir.x*32);
+//           //spectre[i].facing = (spectre[i].facing  + 2) & 3;
+//           //spectre[i].dir.x = 0;//*= -1;
+//         }
+//         if(spectre[i].mode==ModePatrol) {
+//           spectre[i].facing = (spectre[i].facing + (rand()%3))&3;
+//           spectre[i].dir.x = face_to_dir[0][spectre[i].facing];
+//           spectre[i].dir.y = face_to_dir[1][spectre[i].facing];
+//           //spectre[i].dir.x = 0;//*= -1;
+//         }
+//       }
+//     } else if(spectre[i].dir.y !=0) {  // (not moving horizontally) if moving vertically
+//       if(getmap(spectre[i].pos.x, spectre[i].pos.y+(33*spectre[i].dir.y))>=0) { // if not running into a wall  
+//         spectre[i].pos.y += (spectre[i].speed*spectre[i].dir.y);
+//         //spectre[i].frame=(spectre[i].frame+1)&3;
+//         if(spectre[i].mode != ModeBunker)
+//           spectre[i].pos.x = ((spectre[i].pos.x>>6)<<6)+32; // tend toward tile center
+//       } else { // hit a wall
+//         spectre[i].pos.y = ((spectre[i].pos.y>>6)<<6)+32; // finish moving toward wall, stop at tile center
+//         if(spectre[i].mode==ModeBunker) {
+//           //spectre[i].pos.y -= ((spectre[i].dir.y*64*1)/5);
+//           //spectre[i].pos.y -= (spectre[i].dir.y*32);
+//           spectre[i].facing = (spectre[i].facing  + 2) & 3; // reverse face
+//           spectre[i].dir.y *= -1;  // reverse direction
+//           //spectre[i].dir.y = 0;
+//         }
+        
+//         if(spectre[i].mode==ModePatrol) {
+//           spectre[i].facing = (spectre[i].facing + (rand()%3))&3;
+//           spectre[i].dir.x = face_to_dir[0][spectre[i].facing];
+//           spectre[i].dir.y = face_to_dir[1][spectre[i].facing];
+//           //spectre[i].dir.x = 0;//*= -1;
+//         }
+
+        
+//       }
+//     } else { } // (not moving horizontally, not moving vertically)
+    
+  }
+}
 
 // =========================================================================================================== //
 //  Map and Level Variables
@@ -150,38 +320,38 @@ void muncher_eat_dots() {
 // initial_map will also be just 1bit, converted to -1 or 0 in MAP[]
 // player[].dots[] will be like initial_dots and use same function to copy to MAP[]
 
-static int8_t boardlayout[] =
-{-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,
- -1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,-1,
- -1, 1,-1,-1,-1,-1, 1,-1,-1,-1,-1,-1, 1,-1,
- -1, 2,-1, 0, 0,-1, 1,-1, 0, 0, 0,-1, 1,-1,
- -1, 1,-1,-1,-1,-1, 1,-1,-1,-1,-1,-1, 1,-1,
- -1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
- -1, 1,-1,-1,-1,-1, 1,-1,-1, 1,-1,-1,-1,-1,
- -1, 1,-1,-1,-1,-1, 1,-1,-1, 1,-1,-1,-1,-1,
- -1, 1, 1, 1, 1, 1, 1,-1,-1, 1, 1, 1, 1,-1,
- -1,-1,-1,-1,-1,-1, 1,-1,-1,-1,-1,-1, 0,-1,
-  0, 0, 0, 0, 0,-1, 1,-1,-1,-1,-1,-1, 0,-1,
-  0, 0, 0, 0, 0,-1, 1,-1,-1, 0, 0, 0, 0, 0,
-  0, 0, 0, 0, 0,-1, 1,-1,-1, 0,-1,-1,-1,-1,
- -1,-1,-1,-1,-1,-1, 1,-1,-1, 0,-1, 0, 0, 0,
-  0, 0, 0, 0, 0, 0, 1, 0, 0, 0,-1, 0, 0, 0,
- -1,-1,-1,-1,-1,-1, 1,-1,-1, 0,-1, 0, 0, 0,
-  0, 0, 0, 0, 0,-1, 1,-1,-1, 0,-1,-1,-1,-1,
-  0, 0, 0, 0, 0,-1, 1,-1,-1, 0, 0, 0, 0, 0,
-  0, 0, 0, 0, 0,-1, 1,-1,-1, 0,-1,-1,-1,-1,
- -1,-1,-1,-1,-1,-1, 1,-1,-1, 0,-1,-1,-1,-1,
- -1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,-1,
- -1, 1,-1,-1,-1,-1, 1,-1,-1,-1,-1,-1, 1,-1,
- -1, 1,-1,-1,-1,-1, 1,-1,-1,-1,-1,-1, 1,-1,
- -1, 2, 1, 1,-1,-1, 1, 1, 1, 1, 1, 1, 1, 0,
- -1,-1,-1, 1,-1,-1, 1,-1,-1, 1,-1,-1,-1,-1,
- -1,-1,-1, 1,-1,-1, 1,-1,-1, 1,-1,-1,-1,-1,
- -1, 1, 1, 1, 1, 1, 1,-1,-1, 1, 1, 1, 1,-1,
- -1, 1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1, 1,-1,
- -1, 1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1, 1,-1,
- -1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
- -1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1};
+// static int8_t boardlayout[] =
+// {-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,
+//  -1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,-1,
+//  -1, 1,-1,-1,-1,-1, 1,-1,-1,-1,-1,-1, 1,-1,
+//  -1, 2,-1, 0, 0,-1, 1,-1, 0, 0, 0,-1, 1,-1,
+//  -1, 1,-1,-1,-1,-1, 1,-1,-1,-1,-1,-1, 1,-1,
+//  -1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+//  -1, 1,-1,-1,-1,-1, 1,-1,-1, 1,-1,-1,-1,-1,
+//  -1, 1,-1,-1,-1,-1, 1,-1,-1, 1,-1,-1,-1,-1,
+//  -1, 1, 1, 1, 1, 1, 1,-1,-1, 1, 1, 1, 1,-1,
+//  -1,-1,-1,-1,-1,-1, 1,-1,-1,-1,-1,-1, 0,-1,
+//   0, 0, 0, 0, 0,-1, 1,-1,-1,-1,-1,-1, 0,-1,
+//   0, 0, 0, 0, 0,-1, 1,-1,-1, 0, 0, 0, 0, 0,
+//   0, 0, 0, 0, 0,-1, 1,-1,-1, 0,-1,-1,-1,-1,
+//  -1,-1,-1,-1,-1,-1, 1,-1,-1, 0,-1, 0, 0, 0,
+//   0, 0, 0, 0, 0, 0, 1, 0, 0, 0,-1, 0, 0, 0,
+//  -1,-1,-1,-1,-1,-1, 1,-1,-1, 0,-1, 0, 0, 0,
+//   0, 0, 0, 0, 0,-1, 1,-1,-1, 0,-1,-1,-1,-1,
+//   0, 0, 0, 0, 0,-1, 1,-1,-1, 0, 0, 0, 0, 0,
+//   0, 0, 0, 0, 0,-1, 1,-1,-1, 0,-1,-1,-1,-1,
+//  -1,-1,-1,-1,-1,-1, 1,-1,-1, 0,-1,-1,-1,-1,
+//  -1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,-1,
+//  -1, 1,-1,-1,-1,-1, 1,-1,-1,-1,-1,-1, 1,-1,
+//  -1, 1,-1,-1,-1,-1, 1,-1,-1,-1,-1,-1, 1,-1,
+//  -1, 2, 1, 1,-1,-1, 1, 1, 1, 1, 1, 1, 1, 0,
+//  -1,-1,-1, 1,-1,-1, 1,-1,-1, 1,-1,-1,-1,-1,
+//  -1,-1,-1, 1,-1,-1, 1,-1,-1, 1,-1,-1,-1,-1,
+//  -1, 1, 1, 1, 1, 1, 1,-1,-1, 1, 1, 1, 1,-1,
+//  -1, 1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1, 1,-1,
+//  -1, 1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1, 1,-1,
+//  -1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+//  -1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1};
 //-1 = Impassable
 // 0 = Blank
 // 1 = Pellet
@@ -248,72 +418,119 @@ Maybe bits 012 will be for 3D floor/ceiling squaretype
 
 When bit 7 is on, the other bits change meaning:
 bits 0-6: squaretype [0-127] (for 3D or 2D)
+AND/OR bits show which tiles to build map out of (straight, corner, etc)
 
+  1
+  2631
+  84268421
+0b10000xxx = 128 = Impassible/Wall
+0b11000xxx = 192 = Door(Impassible/Slow)
+0b00000xxx =   0 = Normal Blank
+0b00001xxx =   8 = Normal Dot
+0b00011xxx =  24 = Normal BigDot
+0b01000xxx =  64 = Slow Blank
+0b01001xxx =  72 = Slow Dot
+0b00100xxx =  32 = Can't go Up Blank
+0b00101xxx =  40 = Can't go Up Dot
 */
-LevelStruct level[21];
-LevelStruct currentlevel;
-uint8_t levelplayerspeed;         // probably replace with level[min(player.level,21)].playerspeed
 
-int8_t map[MAP_W * MAP_H];  // int8 means cells can be from -127 to 128
+static int8_t boardlayout[] = {
+  128,128,128,128,128,128,128,128,128,128,128,128,128,128,
+  128,  8,  8,  8,  8,  8,  8,  8,  8,  8,  8,  8,  8,128,
+  128,  8,128,128,128,128,  8,128,128,128,128,128,  8,128,
+  128, 24,128,  0,  0,128,  8,128,  0,  0,  0,128,  8,128,
+  128,  8,128,128,128,128,  8,128,128,128,128,128,  8,128,
+  128,  8,  8,  8,  8,  8,  8,  8,  8,  8,  8,  8,  8,  8,
+  128,  8,128,128,128,128,  8,128,128,  8,128,128,128,128,
+  128,  8,128,128,128,128,  8,128,128,  8,128,128,128,128,
+  128,  8,  8,  8,  8,  8,  8,128,128,  8,  8,  8,  8,128,
+  128,128,128,128,128,128,  8,128,128,128,128,128,  0,128,
+    0,  0,  0,  0,  0,128,  8,128,128,128,128,128,  0,128,
+    0,  0,  0,  0,  0,128,  8,128,128,  0,  0, 32, 32, 32,
+    0,  0,  0,  0,  0,128,  8,128,128,  0,128,128,128,192,
+  128,128,128,128,128,128,  8,128,128,  0,128, 64, 64, 64,
+   64, 64, 64, 64, 64,  0,  8,  0,  0,  0,128, 64, 64, 64,
+  128,128,128,128,128,128,  8,128,128,  0,128, 64, 64, 64,
+    0,  0,  0,  0,  0,128,  8,128,128,  0,128,128,128,128,
+    0,  0,  0,  0,  0,128,  8,128,128,  0,  0,  0,  0,  0,
+    0,  0,  0,  0,  0,128,  8,128,128,  0,128,128,128,128,
+  128,128,128,128,128,128,  8,128,128,  0,128,128,128,128,
+  128,  8,  8,  8,  8,  8,  8,  8,  8,  8,  8,  8,  8,128,
+  128,  8,128,128,128,128,  8,128,128,128,128,128,  8,128,
+  128,  8,128,128,128,128,  8,128,128,128,128,128,  8,128,
+  128, 24,  8,  8,128,128,  8,  8,  8,  8,  8, 40, 40, 32,
+  128,128,128,  8,128,128,  8,128,128,  8,128,128,128,128,
+  128,128,128,  8,128,128,  8,128,128,  8,128,128,128,128,
+  128,  8,  8,  8,  8,  8,  8,128,128,  8,  8,  8,  8,128,
+  128,  8,128,128,128,128,128,128,128,128,128,128,  8,128,
+  128,  8,128,128,128,128,128,128,128,128,128,128,  8,128,
+  128,  8,  8,  8,  8,  8,  8,  8,  8,  8,  8,  8,  8,  8,
+  128,128,128,128,128,128,128,128,128,128,128,128,128,128
+};
+
 
 void save_dots(uint8_t *dots) {
-  uint8_t bit = 0; // because 8 bits, can't have more than 256 total dots
+  // obsolete until fixed to use the new boardlayout[]
+//   uint8_t bit = 0; // because 8 bits, can't have more than 256 total dots
 
-  // convert -1,0,1,2 to 0,1,2,3
-  for(uint16_t i=0; i<MAP_H*MAP_W; i++)
-    map[i]++;
+//   // convert -1,0,1,2 to 0,1,2,3
+//   for(uint16_t i=0; i<MAP_H*MAP_W; i++)
+//     map[i]++;
 
-  for(uint16_t y=0, row=0; y<MAP_H*MAP_W; y+=MAP_W, row++)
-    for(uint16_t x=0; x<(MAP_W/2); x++) {  // map_w has to <= 32, else bitshift below breaks
-      if(((BoardLayout[row] >> (x*2))&3) > 1) { // if dot is supposed to exist
-        if(map[y+x]>1) {
-          //dots[(bit>>3)] &= 1(bit&7))&1
-        }
-        if(map[y + MAP_W - 1 - x]>1) {
+//   for(uint16_t y=0, row=0; y<MAP_H*MAP_W; y+=MAP_W, row++)
+//     for(uint16_t x=0; x<(MAP_W/2); x++) {  // map_w has to <= 32, else bitshift below breaks
+//       if(((BoardLayout[row] >> (x*2))&3) > 1) { // if dot is supposed to exist
+//         if(map[y+x]>1) {
+//           //dots[(bit>>3)] &= 1(bit&7))&1
+//         }
+//         if(map[y + MAP_W - 1 - x]>1) {
           
-        }
-      }
-      map[y+x]               = (BoardLayout[row] >> (x*2))&3;
-      map[y + MAP_W - 1 - x] = (BoardLayout[row] >> (x*2))&3; // right 16 tiles = left side horizontally flipped
-      if(map[y+x] > 1) {  // 2(0b10) = dot, 3(0b11) = bigdot
-        if((dots[(bit>>3)]>>(bit&7))&1) // 1 = eaten
-          map[y+x] = 1;                 // 1 = blank
-        bit++;
-        if((dots[(bit>>3)]>>(bit&7))&1) // 1 = eaten
-          map[y + MAP_W - 1 - x] = 1;   // 1 = blank
-        bit++;
-      }
-    }
+//         }
+//       }
+//       map[y+x]               = (BoardLayout[row] >> (x*2))&3;
+//       map[y + MAP_W - 1 - x] = (BoardLayout[row] >> (x*2))&3; // right 16 tiles = left side horizontally flipped
+//       if(map[y+x] > 1) {  // 2(0b10) = dot, 3(0b11) = bigdot
+//         if((dots[(bit>>3)]>>(bit&7))&1) // 1 = eaten
+//           map[y+x] = 1;                 // 1 = blank
+//         bit++;
+//         if((dots[(bit>>3)]>>(bit&7))&1) // 1 = eaten
+//           map[y + MAP_W - 1 - x] = 1;   // 1 = blank
+//         bit++;
+//       }
+//     }
 
 }
 
-void load_dots(uint8_t *dots) {
-// note: in dots[], each bit is 0 if dot still exists or 1 if already eaten
-// init player[].dots[] all to 0 to signify full board (0 = dot there in dots[])
+uint8_t load_dots(uint8_t *dots) {
+ // note: in dots[], each bit is 0 if dot still exists or 1 if already eaten
+ // init player[].dots[] all to 0 to signify full board (0 = dot there in dots[])
+  uint8_t totaldots=0;
   uint8_t bit = 0; // because 8 bits, can't have more than 256 total dots
-  for(uint16_t y=0, row=0; y<MAP_H*MAP_W; y+=MAP_W, row++)
+  for(uint16_t y=0, y2=0; y<MAP_H*MAP_W; y+=MAP_W, y2+=(MAP_W/2))
     for(uint16_t x=0; x<(MAP_W/2); x++) {  // map_w has to <= 32, else bitshift below breaks
-      map[y+x]               = (BoardLayout[row] >> (x*2))&3;
-      map[y + MAP_W - 1 - x] = (BoardLayout[row] >> (x*2))&3; // right 16 tiles = left side horizontally flipped
-      if(map[y+x] > 1) {  // 2(0b10) = dot, 3(0b11) = bigdot
-        if((dots[(bit>>3)]>>(bit&7))&1) // 1 = eaten
-          map[y+x] = 1;                 // 1 = blank
+      uint16_t pos = y + x;
+      map[pos]               = boardlayout[y2 + x];
+      map[y + MAP_W - 1 - x] = boardlayout[y2 + x]; // right 16 tiles = left side horizontally flipped
+      if((map[pos] & 24)>0) {  // if map pos was a dot or bigdot
+        if((dots[(bit>>3)]>>(bit&7))&1)  // if that dot was eaten (when dots[]=1, it means it was eaten)
+          map[pos] &= ~24;               // remove dot
+        else
+          totaldots++;
         bit++;
-        if((dots[(bit>>3)]>>(bit&7))&1) // 1 = eaten
-          map[y + MAP_W - 1 - x] = 1;   // 1 = blank
+        if((dots[(bit>>3)]>>(bit&7))&1)  // if that dot was eaten (when dots[]=1, it means it was eaten)
+          map[y + MAP_W - 1 - x] &= ~24; // remove dot
+        else
+          totaldots++;
         bit++;
       }
     }
-
-  // convert 0,1,2,3 to -1,0,1,2
-  for(uint16_t i=0; i<MAP_H*MAP_W; i++)
-    map[i]--;
+  return totaldots;
 }
 
 void init_board() {
 //   for(uint16_t i=0; i<MAP_W*MAP_H; i++) map[i] = boardlayout[i];
 
-  load_dots((uint8_t*)&player[current_player].dots);
+  player[current_player].totaldots = load_dots((uint8_t*)&player[current_player].dots);
   
 /*  
   for(uint16_t y=0; y<MAP_H*MAP_W; y+=MAP_W)
@@ -322,12 +539,15 @@ void init_board() {
      map[y + MAP_W - 1 - x] = boardlayout[(y/2)+x];
    }
 */
-  levelplayerspeed=19;  // Default 100% speed -- level speed will replace this
+  levelplayerspeed = 19;  // Default 100% speed -- level speed will replace this
+  
 }
-uint8_t getlevelspeed() {
+
+uint8_t getlevelspeed(uint8_t level) {
   return levelplayerspeed;
 }
-int8_t getmap(int32_t x, int32_t y) {
+
+uint8_t getmap(int32_t x, int32_t y) {
   x>>=6; y>>=6;
   if(y==14 && (x<0 || x>=MAP_W)) return 0;
   return (x<0 || x>=MAP_W || y<0 || y>=MAP_H) ? -1 : map[(y * MAP_W) + x];
@@ -338,9 +558,6 @@ void setmap(int32_t x, int32_t y, int8_t data) {
   if(x>=0 && x<MAP_W && y>=0 && y<MAP_H)
     map[(y * MAP_W) + x]=data;
 }
-
-//TODO: does face_do_dir need to be 32bits?
-const int32_t face_to_dir[2][4] = {{1, 0, -1, 0},{0, -1, 0, 1}}; // X then Y
 
 // =========================================================================================================== //
 //  Control Input Options
@@ -388,7 +605,6 @@ void game_click_config_provider(void *context) {
 void update_movement_via_joystick() {
   AccelData accel;
   XYStruct testspeed, testfacing;
-  extern MuncherStruct muncher;
   
   testspeed.x = 0; testspeed.y = 0;  testfacing.x = 0;  testfacing.y = 0;
   switch(control_mode) {
@@ -396,10 +612,10 @@ void update_movement_via_joystick() {
       if(bk_button_depressed) window_stack_pop_all(true); // back = quit (TODO: Menu)
       accel_service_peek(&accel); // Read accelerometer
       accel.x>>=3; accel.y>>=3;
-           if(accel.x<-AccelerometerTolerance) {if(getmap(muncher.pos.x+(64*-1), muncher.pos.y+(64* 0))>=0) {testspeed.x =-1; testfacing.x = 2;}} // Left
-      else if(accel.x> AccelerometerTolerance) {if(getmap(muncher.pos.x+(64* 1), muncher.pos.y+(64* 0))>=0) {testspeed.x = 1; testfacing.x = 0;}} // Right
-           if(accel.y<-AccelerometerTolerance) {if(getmap(muncher.pos.x+(64* 0), muncher.pos.y+(64* 1))>=0) {testspeed.y = 1; testfacing.y = 3;}} // Down
-      else if(accel.y> AccelerometerTolerance) {if(getmap(muncher.pos.x+(64* 0), muncher.pos.y+(64*-1))>=0) {testspeed.y =-1; testfacing.y = 1;}} // Up
+           if(accel.x<-AccelerometerTolerance) {if(getmap(muncher.pos.x+(64*-1), muncher.pos.y+(64* 0))<128) {testspeed.x =-1; testfacing.x = 2;}} // Left
+      else if(accel.x> AccelerometerTolerance) {if(getmap(muncher.pos.x+(64* 1), muncher.pos.y+(64* 0))<128) {testspeed.x = 1; testfacing.x = 0;}} // Right
+           if(accel.y<-AccelerometerTolerance) {if(getmap(muncher.pos.x+(64* 0), muncher.pos.y+(64* 1))<128) {testspeed.y = 1; testfacing.y = 3;}} // Down
+      else if(accel.y> AccelerometerTolerance) {if(getmap(muncher.pos.x+(64* 0), muncher.pos.y+(64*-1))<128) {testspeed.y =-1; testfacing.y = 1;}} // Up
     
       if((abs32(accel.x)>abs32(accel.y) || testspeed.y==0) && testspeed.x!=0) {
         muncher.dir.x = testspeed.x;
@@ -421,10 +637,10 @@ void update_movement_via_joystick() {
       //if(sl_button_depressed && !bk_button_depressed) {if(getmap(muncher.pos.x+(64* 1), muncher.pos.y+(64* 0))>=0) {testspeed.x = 1; testfacing.x = 0;}} // Right
       //if(dn_button_depressed && !up_button_depressed) {if(getmap(muncher.pos.x+(64* 0), muncher.pos.y+(64* 1))>=0) {testspeed.y = 1; testfacing.y = 3;}} // Down
       //if(up_button_depressed && !dn_button_depressed) {if(getmap(muncher.pos.x+(64* 0), muncher.pos.y+(64*-1))>=0) {testspeed.y =-1; testfacing.y = 1;}} // Up
-      if(bk_button_depressed && !sl_button_depressed) {if(getmap(muncher.pos.x+(64*-1), muncher.pos.y+(64* 0))>=0) {muncher.dir.y=0;muncher.dir.x=-1; muncher.facing=2;}} // Left
-      if(sl_button_depressed && !bk_button_depressed) {if(getmap(muncher.pos.x+(64* 1), muncher.pos.y+(64* 0))>=0) {muncher.dir.y=0;muncher.dir.x= 1; muncher.facing=0;}} // Right
-      if(dn_button_depressed && !up_button_depressed) {if(getmap(muncher.pos.x+(64* 0), muncher.pos.y+(64* 1))>=0) {muncher.dir.x=0;muncher.dir.y= 1; muncher.facing=3;}} // Down
-      if(up_button_depressed && !dn_button_depressed) {if(getmap(muncher.pos.x+(64* 0), muncher.pos.y+(64*-1))>=0) {muncher.dir.x=0;muncher.dir.y=-1; muncher.facing=1;}} // Up    
+      if(bk_button_depressed && !sl_button_depressed) {if(getmap(muncher.pos.x+(64*-1), muncher.pos.y+(64* 0))<128) {muncher.dir.y=0;muncher.dir.x=-1; muncher.facing=2;}} // Left
+      if(sl_button_depressed && !bk_button_depressed) {if(getmap(muncher.pos.x+(64* 1), muncher.pos.y+(64* 0))<128) {muncher.dir.y=0;muncher.dir.x= 1; muncher.facing=0;}} // Right
+      if(dn_button_depressed && !up_button_depressed) {if(getmap(muncher.pos.x+(64* 0), muncher.pos.y+(64* 1))<128) {muncher.dir.x=0;muncher.dir.y= 1; muncher.facing=3;}} // Down
+      if(up_button_depressed && !dn_button_depressed) {if(getmap(muncher.pos.x+(64* 0), muncher.pos.y+(64*-1))<128) {muncher.dir.x=0;muncher.dir.y=-1; muncher.facing=1;}} // Up    
     break;
     
     case LRButtonControl:         // Up/Down = CounterClockwise/Clockwise, Select = Reverse Direction (back brings up menu)
@@ -451,8 +667,8 @@ void update_movement_via_joystick() {
          testfacing.x = (muncher.facing+1)&3; // Left Turn
          testfacing.y = (muncher.facing+3)&3; // Right Turn
          
-         if(getmap(muncher.pos.x+(64*face_to_dir[0][testfacing.x]), muncher.pos.y+(64*face_to_dir[1][testfacing.x]))>=0 && up_button_depressed) {
-           if(getmap(muncher.pos.x+(64*face_to_dir[0][testfacing.y]), muncher.pos.y+(64*face_to_dir[1][testfacing.y]))>=0 && dn_button_depressed) {
+         if(getmap(muncher.pos.x+(64*face_to_dir[0][testfacing.x]), muncher.pos.y+(64*face_to_dir[1][testfacing.x]))<128 && up_button_depressed) {
+           if(getmap(muncher.pos.x+(64*face_to_dir[0][testfacing.y]), muncher.pos.y+(64*face_to_dir[1][testfacing.y]))<128 && dn_button_depressed) {
            } else {
              //go ccw(up)
              muncher.facing = testfacing.x;
@@ -461,7 +677,7 @@ void update_movement_via_joystick() {
              turning_at = ((muncher.pos.x>>6) * (muncher.pos.y>>6));
            }
          } else {
-           if(getmap(muncher.pos.x+(64*face_to_dir[0][testfacing.y]), muncher.pos.y+(64*face_to_dir[1][testfacing.y]))>=0 && dn_button_depressed) {
+           if(getmap(muncher.pos.x+(64*face_to_dir[0][testfacing.y]), muncher.pos.y+(64*face_to_dir[1][testfacing.y]))<128 && dn_button_depressed) {
              //go cw(down)
              muncher.facing = testfacing.y;
              muncher.dir.x = face_to_dir[0][muncher.facing];
@@ -509,16 +725,17 @@ void update_movement_via_joystick() {
 //  Main Loop Functions
 // ------------------------------------------------------------------------ //
 static void gameloop(void *data) {
-  extern MuncherStruct muncher;
-  muncher.speed=getlevelspeed();
-
+  //app_timer_cancel(looptimer);
+  muncher.speed = getlevelspeed(player[current_player].level);
   muncher_eat_dots();
   update_movement_via_joystick();
   move_muncher();
-  dotflashing++;
+  move_spectres();
+  //check_collisions();
   
   layer_mark_dirty(game_layer);  // Schedule redraw of screen
-  looptimer=NULL;
+  //looptimer=NULL;
+  looptimer = app_timer_register(UPDATE_MS, gameloop, NULL); // Finished. Wait UPDATE_MS then loop
 }
 
 
@@ -526,28 +743,71 @@ static void gameloop(void *data) {
 
 //====================================//
 static void game_layer_update(Layer *me, GContext *ctx) {
-//   GBitmap* framebuffer = graphics_capture_frame_buffer(ctx);
-//   if(framebuffer) {
-// //     draw_background(framebuffer);
-//    graphics_release_frame_buffer(ctx, framebuffer);
-//   }
-  time_t sec1, sec2; uint16_t ms1, ms2, dt; // time snapshot variables, to calculate render time and FPS
+ //TODO:
+  // Two update functions
+  // Full screen refresh (periodic, maybe every 5 seconds, like Key Frames)
+  // Standard refresh:
+  //    Draw over old positions
+  //    Redraw into new positions
+  time_t sec1, sec2; static uint16_t ms1, ms2, dt; // time snapshot variables, to calculate render time and FPS
   time_ms(&sec1, &ms1);  //1st Time Snapshot
 
-  
-  draw_background_ctx(ctx);
-  draw_dots_ctx(ctx);
-  draw_muncher_ctx(ctx);
   draw_top_ctx(ctx);
+  
+  GBitmap* framebuffer_bmp = graphics_capture_frame_buffer(ctx);
+  if(framebuffer_bmp) {
+    uint8_t *framebuffer = gbitmap_get_data(framebuffer_bmp);
+
+    draw_background_fb(framebuffer);
+    draw_dots_fb(framebuffer);
+    //draw_muncher_fb(framebuffer);
+    //draw_spectres(framebuffer);
+    //draw_font8(framebuffer, 5, 5, 1, 65);
+    //draw_sprite8(uint16_t *fb, int16_t start_x, int16_t start_y, uint8_t color, uint8_t spr) {
+    //draw_sprite8(framebuffer, animate%144, 25, 0b11001100, 66);
+    //draw_sprite8(framebuffer, 5, animate%168, 0b11001100, 17);
+  
+    // (x,y) = muncher's upper left pixel on the screen
+    //x = ((muncher.pos.x >> 6) * 5) + (((muncher.pos.x & 63) * 5) / 64); x = (x+BOARD_X-3);
+    //y = ((muncher.pos.y >> 6) * 5) + (((muncher.pos.y & 63) * 5) / 64); y = (y+BOARD_Y-3);
+    //draw_sprite8(framebuffer, font_sprites, x, y, 0b11111100, 32+(((muncher.frame>>0)&3)<<2) + muncher.facing); // change "muncher.frame>>0" to ">>?" for slower mouth flapping
+
+    draw_actor(framebuffer, muncher.pos.x, muncher.pos.y, 0b11111100, 32+(((muncher.frame>>0)&3)<<2) + muncher.facing); // change "muncher.frame>>0" to ">>?" for slower mouth flapping
+    
+     // Draw Spectres
+     for(uint8_t i=0; i<4; ++i) {
+       //draw_actor(framebuffer, spectre[i].pos.x, spectre[i].pos.y, spectre[i].color, 17 + ((spectre[i].frame)&1)); // spectre body
+       draw_actor(framebuffer, spectre[i].pos.x, spectre[i].pos.y, spectre[i].color, 17 + ((animate>>1)&1)); // spectre body
+       #ifdef PBL_COLOR
+         draw_actor(framebuffer, spectre[i].pos.x, spectre[i].pos.y,  IF_COLORBW(0b11111111, 0), 12 + ((spectre[i].facing)&3));      // spectre eyes
+         draw_pupils(framebuffer, spectre[i].pos.x, spectre[i].pos.y,IF_COLORBW(0b11000011, 1), (spectre[i].facing)&3);      // spectre pupils
+       #else
+         // draw b&w pupils
+       #endif
+     }
+    
+    
+    char text[10];
+    snprintf(text, sizeof(text), "ms: %d", dt);
+    draw_font8_text(framebuffer, 0, 0, 0b11001100, text);
+    //draw_font8_text(framebuffer, 0, 0, 0b11001100, "This is a test");
+    
+    
+    graphics_release_frame_buffer(ctx, framebuffer_bmp);
+  }
+
+  //draw_background_ctx(ctx);
+  //draw_dots_ctx(ctx);
+  //draw_muncher_ctx(ctx);
+  
+  //draw_top_ctx(ctx);
 
   time_ms(&sec2, &ms2);  //2nd Time Snapshot
   dt = (uint16_t)(1000*(sec2 - sec1)) + (ms2 - ms1);  //dt=delta time: time between two time snapshots in milliseconds
-  player[current_player].score = dt;
 
-
+  animate++;
   
 //   app_timer_register(UPDATE_MS, gameloop, NULL); // Finished. Wait UPDATE_MS then loop
-  if(!looptimer) looptimer = app_timer_register(UPDATE_MS, gameloop, NULL); // Finished. Wait UPDATE_MS then loop
 }
   
 // ------------------------------------------------------------------------ //
@@ -561,6 +821,7 @@ void init_game() {
   load_graphics();
   init_board();
   init_muncher();
+  init_spectres();
   create_players(0);
   currentplayer = 0;
 
@@ -573,7 +834,7 @@ void start_game() {
 }
 
 void destroy_game() {
-  if(looptimer) app_timer_cancel(looptimer);
+  //if(looptimer) app_timer_cancel(looptimer);
   accel_data_service_unsubscribe();
   //TODO: destroy game layer
   //destroy_graphics();

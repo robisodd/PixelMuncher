@@ -303,3 +303,22 @@ Version 2: (Level Editor)
 #define FONT_KEY_ROBOTO_BOLD_SUBSET_49 "RESOURCE_ID_ROBOTO_BOLD_SUBSET_49"
 #define FONT_KEY_DROID_SERIF_28_BOLD "RESOURCE_ID_DROID_SERIF_28_BOLD"
 */
+
+
+// Used to encapsulate, but became too tedious
+// void     add_points(uint32_t points); // add points to current player
+// uint8_t  get_current_player();
+// uint8_t  get_lives();
+// uint32_t get_score();
+// uint8_t  get_level();
+
+
+// Used to encapsulate, but became too tedious.  May reinstate
+// void add_points(uint32_t points) {player[current_player].score+=points;}
+// uint32_t get_score() {return player[current_player].score;}
+//  uint8_t get_lives() {return player[current_player].lives;}
+//  uint8_t get_level() {return player[current_player].level;}
+//  uint8_t get_current_player() {return current_player;}
+//bool player_is_dead(
+//void set_current_player(uint8_t ID) {current_player = ID;}
+
